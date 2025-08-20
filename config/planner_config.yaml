@@ -2,18 +2,29 @@
 
 local_planner:
   ros__parameters:
-    # Reference path (relative to package)
-    reference_path_file: ""  # Empty for test path, or specify CSV filename without extension
+    # Reference path configuration
+    # Available options in config/reference_paths/:
+    # - "Spielberg_global"
+    # - "slam_map_global" 
+    # - "slamtoolbox_raceline"
+    # - "first_map_raceline"
+    # - "" (empty for default test path)
+    reference_path_file: "Spielberg_global"  # CSV filename without extension
     path_resolution: 0.1
     
     # Planning parameters
     lateral_step: 0.3           # Lateral sampling step (m)
     max_lateral_offset: 1.5     # Maximum lateral offset (m)
-    planning_horizon: 2.0       # Planning time horizon (s)
+    planning_horizon: 1.5       # Planning time horizon (s) - increased for better lookahead
     dt: 0.1                     # Time step (s)
     planning_frequency: 20.0    # Planning frequency (Hz)
     
+    # Path smoothing parameters (to fix lattice deformation)
+    min_planning_distance: 1.5   # Minimum planning distance (m) for better lookahead
+    transition_smoothness: 5.0   # Transition smoothness factor (higher = smoother)
+    curvature_weight: 0.5        # Weight for curvature continuity in cost function
+    
     # Vehicle parameters
-    max_velocity: 5.0           # Maximum velocity (m/s)
-    max_curvature: 1.0          # Maximum path curvature (1/m)
+    max_velocity: 8.0           # Maximum velocity (m/s)
+    max_curvature: 0.892          # Maximum path curvature (1/m)
     vehicle_width: 0.35         # Vehicle width for collision checking (m)

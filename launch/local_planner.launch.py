@@ -26,6 +26,7 @@ def generate_launch_description():
         description='Use simulation mode (ego_racecar/odom) if true, real car mode (/pf/pose/odom) if false'
     )
     
+    
     # Local planner node for simulation mode
     local_planner_sim_node = Node(
         package='local_planner_pkg',

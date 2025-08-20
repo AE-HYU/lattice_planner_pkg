@@ -20,6 +20,7 @@ public:
     static void calculate_arc_length(std::vector<RefPoint>& path);
     static void calculate_heading(std::vector<RefPoint>& path);
     static void calculate_curvature(std::vector<RefPoint>& path);
+    static void close_raceline_loop(std::vector<RefPoint>& path);
     static RefPoint interpolate_reference_point(const std::vector<RefPoint>& path, double s);
     
     // Geometry utilities
@@ -38,17 +39,6 @@ public:
         const Point2D& vehicle_pos, const std::vector<RefPoint>& reference_path, 
         const PlannerConfig& config);
     
-    // Speed control functions
-    static double calculate_sigmoid_speed_reduction(double hazard_distance, double min_distance, double max_distance);
-    static double calculate_curvature_speed_limit(double curvature, double max_curvature, double max_velocity);
-    static bool is_within_road_boundaries(const CartesianPoint& point, const std::vector<RefPoint>& reference_path);
-    
-    // Occupancy grid collision checking
-    static bool is_point_occupied(const Point2D& point, const nav_msgs::msg::OccupancyGrid::SharedPtr& grid, 
-                                  double inflation_radius = 0.0, int occupancy_threshold = 50);
-    static bool is_path_clear_in_grid(const std::vector<CartesianPoint>& path, 
-                                      const nav_msgs::msg::OccupancyGrid::SharedPtr& grid,
-                                      double inflation_radius = 0.2, int occupancy_threshold = 50);
     
     // Cost calculation
     static double calculate_path_cost(const PathCandidate& path, 

@@ -64,12 +64,17 @@ struct PlannerConfig {
     double path_resolution = 0.1;
     double lateral_step = 0.3;
     double max_lateral_offset = 1.5;
-    double planning_horizon = 2.0;
+    double planning_horizon = 3.0;          // Increased for better lookahead
     double dt = 0.1;
     double max_velocity = 5.0;
     double max_curvature = 1.0;
     double vehicle_width = 0.35;        // Vehicle width for collision checking
     double planning_frequency = 20.0;
+    
+    // Path smoothing parameters (to fix lattice deformation)
+    double min_planning_distance = 15.0;    // Minimum planning distance (m)
+    double transition_smoothness = 5.0;     // Transition smoothness factor
+    double curvature_weight = 0.5;          // Weight for curvature continuity
     
     // Biased sampling parameters
     double bias_strength = 2.0;        // How much to bias towards center
@@ -102,12 +107,11 @@ private:
     bool is_path_safe_in_grid(const PathCandidate& path);
     bool check_collision(const CartesianPoint& point, const std::vector<Obstacle>& obstacles);
     
-    // Speed control for obstacle avoidance
-    void apply_speed_reduction_for_avoidance(PathCandidate& path, const std::vector<Obstacle>& obstacles);
     
     // Publishing
     void publish_selected_path(const PathCandidate& path);
     void publish_visualization(const std::vector<PathCandidate>& candidates, const PathCandidate& selected);
+    void publish_reference_path();
     
     // Callbacks
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
@@ -133,6 +137,7 @@ private:
     // ROS components
     rclcpp::Publisher<planning_custom_msgs::msg::PathWithVelocity>::SharedPtr path_with_velocity_pub_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr reference_path_pub_;
     
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr grid_sub_;

@@ -144,6 +144,8 @@ std::vector<RefPoint> Utils::load_reference_path_from_csv(const std::string& fil
     calculate_heading(path);
     calculate_curvature(path);
     
+    // Note: Loop closure is handled during interpolation, not by adding physical points
+    
     std::cout << "Loaded " << path.size() << " reference points from " << file_path << std::endl;
     
     return path;
@@ -210,9 +212,102 @@ void Utils::calculate_curvature(std::vector<RefPoint>& path) {
     }
 }
 
+void Utils::close_raceline_loop(std::vector<RefPoint>& path) {
+    if (path.size() < 3) return;
+    
+    RefPoint& first_point = path.front();
+    RefPoint& last_point = path.back();
+    
+    // Calculate distance between start and end points
+    double dx = first_point.x - last_point.x;
+    double dy = first_point.y - last_point.y;
+    double gap_distance = std::sqrt(dx*dx + dy*dy);
+    
+    std::cout << "Raceline gap distance: " << gap_distance << " meters" << std::endl;
+    
+    // If gap is significant (> 0.5m), add intermediate points to close the loop
+    if (gap_distance > 0.5) {
+        std::cout << "Closing raceline loop with intermediate points..." << std::endl;
+        
+        // Number of points to add based on gap distance
+        int num_interpolation_points = static_cast<int>(gap_distance / 0.2); // Every 20cm
+        num_interpolation_points = std::max(1, std::min(num_interpolation_points, 10)); // Limit 1-10 points
+        
+        double total_length_before = last_point.s;
+        
+        for (int i = 1; i <= num_interpolation_points; ++i) {
+            double ratio = static_cast<double>(i) / (num_interpolation_points + 1);
+            
+            RefPoint interpolated;
+            interpolated.x = last_point.x + ratio * (first_point.x - last_point.x);
+            interpolated.y = last_point.y + ratio * (first_point.y - last_point.y);
+            interpolated.velocity = (last_point.velocity + first_point.velocity) / 2.0;
+            interpolated.width_left = (last_point.width_left + first_point.width_left) / 2.0;
+            interpolated.width_right = (last_point.width_right + first_point.width_right) / 2.0;
+            
+            // Calculate arc length for the new point
+            double prev_x = (i == 1) ? last_point.x : path.back().x;
+            double prev_y = (i == 1) ? last_point.y : path.back().y;
+            double prev_s = (i == 1) ? last_point.s : path.back().s;
+            
+            double segment_length = std::sqrt((interpolated.x - prev_x)*(interpolated.x - prev_x) + 
+                                            (interpolated.y - prev_y)*(interpolated.y - prev_y));
+            interpolated.s = prev_s + segment_length;
+            
+            // Calculate heading direction towards next point
+            double next_x = (i == num_interpolation_points) ? first_point.x : 
+                           last_point.x + (ratio + 1.0/(num_interpolation_points + 1)) * (first_point.x - last_point.x);
+            double next_y = (i == num_interpolation_points) ? first_point.y : 
+                           last_point.y + (ratio + 1.0/(num_interpolation_points + 1)) * (first_point.y - last_point.y);
+            
+            interpolated.heading = std::atan2(next_y - interpolated.y, next_x - interpolated.x);
+            interpolated.curvature = 0.0; // Will be recalculated later
+            
+            path.push_back(interpolated);
+        }
+        
+        std::cout << "Added " << num_interpolation_points << " points to close the loop" << std::endl;
+    }
+    
+    // Update the total track length and ensure smooth connection
+    if (!path.empty()) {
+        // Add final segment length from last added point back to start
+        RefPoint& new_last = path.back();
+        double final_dx = first_point.x - new_last.x;
+        double final_dy = first_point.y - new_last.y;
+        double final_segment = std::sqrt(final_dx*final_dx + final_dy*final_dy);
+        
+        // Store total track length for wraparound calculations
+        double total_track_length = new_last.s + final_segment;
+        
+        std::cout << "Total track length: " << total_track_length << " meters" << std::endl;
+        
+        // Update heading for the last few points to point toward start
+        if (path.size() >= 2) {
+            new_last.heading = std::atan2(first_point.y - new_last.y, first_point.x - new_last.x);
+        }
+    }
+}
+
 RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, double s) {
     if (path.empty()) {
         return RefPoint();
+    }
+    
+    double total_length = path.back().s;
+    
+    // Calculate gap distance for closed loop
+    double dx = path[0].x - path.back().x;
+    double dy = path[0].y - path.back().y;
+    double gap_distance = std::sqrt(dx*dx + dy*dy);
+    double extended_length = total_length + gap_distance;
+    
+    // Handle wraparound for closed-loop racelines
+    while (s > extended_length) {
+        s -= extended_length;
+    }
+    while (s < 0.0) {
+        s += extended_length;
     }
     
     if (s <= path[0].s) {
@@ -220,6 +315,34 @@ RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, d
     }
     
     if (s >= path.back().s) {
+        // Wraparound: interpolate between last and first points
+        const RefPoint& p1 = path.back();
+        const RefPoint& p2 = path.front();
+        
+        // Calculate physical gap distance between last and first point
+        double dx = p2.x - p1.x;
+        double dy = p2.y - p1.y;
+        double gap_distance = std::sqrt(dx*dx + dy*dy);
+        
+        double remaining_s = s - p1.s;
+        
+        if (gap_distance > 1e-6) {
+            double ratio = remaining_s / gap_distance;
+            ratio = std::max(0.0, std::min(1.0, ratio));
+            
+            RefPoint interpolated;
+            interpolated.x = p1.x + ratio * (p2.x - p1.x);
+            interpolated.y = p1.y + ratio * (p2.y - p1.y);
+            interpolated.s = s;
+            interpolated.velocity = p1.velocity + ratio * (p2.velocity - p1.velocity);
+            interpolated.heading = p1.heading + ratio * normalize_angle(p2.heading - p1.heading);
+            interpolated.curvature = p1.curvature + ratio * (p2.curvature - p1.curvature);
+            interpolated.width_left = p1.width_left + ratio * (p2.width_left - p1.width_left);
+            interpolated.width_right = p1.width_right + ratio * (p2.width_right - p1.width_right);
+            
+            return interpolated;
+        }
+        
         return path.back();
     }
     
@@ -341,9 +464,13 @@ std::vector<CartesianPoint> Utils::generate_lattice_path(
     
     std::vector<CartesianPoint> path;
     
-    // Start from vehicle's current position and heading (not reference path)
-    double planning_distance = config.max_velocity * config.planning_horizon;
+    // Use minimum planning distance to ensure adequate lookahead
+    double planning_distance = std::max(config.min_planning_distance, 
+                                       config.max_velocity * config.planning_horizon);
     int num_points = static_cast<int>(planning_distance / config.path_resolution);
+    
+    // Get initial Frenet coordinates of the vehicle
+    FrenetPoint vehicle_frenet = cartesian_to_frenet(start_pos, reference_path);
     
     for (int i = 0; i < num_points; ++i) {
         double progress = i * config.path_resolution;
@@ -356,30 +483,52 @@ std::vector<CartesianPoint> Utils::generate_lattice_path(
             cart_point.y = start_pos.y;
             cart_point.yaw = start_yaw;
         } else {
-            // Transition from vehicle heading to lateral offset relative to reference path
-            double transition_factor = std::tanh(progress / 2.0); // Smooth transition over 2 meters
+            // Improved transition: use smoother function and longer transition distance
+            double transition_distance = config.transition_smoothness; // 5 meters default
+            double transition_factor;
             
-            // Find reference point ahead
-            Point2D projected_pos;
-            projected_pos.x = start_pos.x + progress * std::cos(start_yaw);
-            projected_pos.y = start_pos.y + progress * std::sin(start_yaw);
+            if (progress <= transition_distance) {
+                // Use smooth sigmoid transition instead of sharp tanh
+                double normalized_progress = progress / transition_distance;
+                transition_factor = 0.5 * (1.0 + std::tanh(4.0 * (normalized_progress - 0.5)));
+            } else {
+                transition_factor = 1.0;
+            }
             
-            FrenetPoint frenet = cartesian_to_frenet(projected_pos, reference_path);
+            // Calculate target s-coordinate along reference path
+            double target_s = vehicle_frenet.s + progress;
             
-            // Blend from current heading to reference-relative lateral offset
-            frenet.d = (1.0 - transition_factor) * 0.0 + transition_factor * lateral_offset;
+            // Smooth lateral transition from current offset to target offset
+            double current_lateral_offset = vehicle_frenet.d;
+            double target_lateral = lateral_offset;
+            double smooth_lateral = current_lateral_offset + 
+                                  transition_factor * (target_lateral - current_lateral_offset);
             
-            CartesianPoint ref_point = frenet_to_cartesian(frenet, reference_path);
+            // Create Frenet point and convert to Cartesian
+            FrenetPoint frenet_point;
+            frenet_point.s = target_s;
+            frenet_point.d = smooth_lateral;
+            
+            CartesianPoint ref_point = frenet_to_cartesian(frenet_point, reference_path);
             cart_point = ref_point;
+            
+            // Smooth heading transition
+            RefPoint ref_at_s = interpolate_reference_point(reference_path, target_s);
+            double target_heading = ref_at_s.heading;
+            cart_point.yaw = start_yaw + transition_factor * 
+                            normalize_angle(target_heading - start_yaw);
         }
         
-        // Get reference point for speed profile
-        RefPoint ref_at_s = interpolate_reference_point(reference_path, 
-                                                       cartesian_to_frenet(Point2D(cart_point.x, cart_point.y), reference_path).s);
+        // Get reference point for speed and curvature profile
+        FrenetPoint current_frenet = cartesian_to_frenet(Point2D(cart_point.x, cart_point.y), reference_path);
+        RefPoint ref_at_s = interpolate_reference_point(reference_path, current_frenet.s);
         
-        // Use reference path's own speed profile (it already accounts for curvature)
-        cart_point.velocity = ref_at_s.velocity;
+        // Use reference path's speed profile with potential reduction for high curvature paths
+        double curvature_penalty = std::abs(lateral_offset) * config.curvature_weight;
+        cart_point.velocity = ref_at_s.velocity * (1.0 - curvature_penalty);
+        cart_point.velocity = std::max(cart_point.velocity, config.max_velocity * 0.3); // Min 30% speed
         
+        cart_point.curvature = ref_at_s.curvature;
         cart_point.time = i * config.dt;
         
         path.push_back(cart_point);
@@ -395,13 +544,26 @@ double Utils::calculate_path_cost(const PathCandidate& path,
         return std::numeric_limits<double>::max();
     }
     
-    // Refined cost function: cost[i] = lateral_offset + (1 / obstacle_distance)
     double cost = 0.0;
     
-    // Lateral offset cost - penalize deviation from centerline
+    // 1. Lateral offset cost - penalize deviation from centerline
     cost += std::abs(path.lateral_offset);
     
-    // Obstacle distance cost - inverse of minimum distance to obstacles
+    // 2. Path smoothness cost - penalize sharp curvature changes (anti-deformation)
+    if (path.points.size() > 2) {
+        double curvature_variation = 0.0;
+        for (size_t i = 1; i < path.points.size() - 1; ++i) {
+            double curvature_diff = std::abs(path.points[i+1].curvature - path.points[i].curvature);
+            curvature_variation += curvature_diff;
+        }
+        cost += config.curvature_weight * curvature_variation;
+    }
+    
+    // 3. Lateral offset change rate - penalize rapid lateral movements (anti-oversteer)
+    double lateral_change_cost = std::abs(path.lateral_offset) * 0.5;
+    cost += lateral_change_cost;
+    
+    // 4. Obstacle distance cost - inverse of minimum distance to obstacles
     if (!obstacles.empty()) {
         double min_obstacle_distance = std::numeric_limits<double>::max();
         
