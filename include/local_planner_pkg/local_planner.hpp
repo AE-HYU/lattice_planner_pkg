@@ -88,7 +88,8 @@ struct PlannerConfig {
     // Speed control parameters (for obstacle avoidance)
     double hazard_detection_distance = 3.0;
     double min_hazard_distance = 0.5;
-    double min_speed_ratio = 0.1;      // Minimum speed as fraction of reference speed
+    double min_speed_ratio = 0.6;      // Minimum speed as fraction of reference speed
+    double speed_sigmoid_steepness = 2.0; // Steepness of sigmoid speed reduction curve
 };
 
 class LocalPlanner : public rclcpp::Node {

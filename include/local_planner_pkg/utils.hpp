@@ -39,6 +39,11 @@ public:
         const Point2D& vehicle_pos, const std::vector<RefPoint>& reference_path, 
         const PlannerConfig& config);
     
+    // Speed control with sigmoid function
+    static double calculate_obstacle_speed_factor(const std::vector<CartesianPoint>& path_points,
+                                                 const std::vector<Obstacle>& obstacles,
+                                                 const PlannerConfig& config);
+    
     
     // Cost calculation
     static double calculate_path_cost(const PathCandidate& path, 

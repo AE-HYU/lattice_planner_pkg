@@ -42,6 +42,10 @@ bool LocalPlanner::initialize() {
     this->declare_parameter("curvature_weight", config_.curvature_weight);
     this->declare_parameter("wheelbase", config_.wheelbase);
     this->declare_parameter("front_lookahead", config_.front_lookahead);
+    this->declare_parameter("hazard_detection_distance", config_.hazard_detection_distance);
+    this->declare_parameter("min_hazard_distance", config_.min_hazard_distance);
+    this->declare_parameter("min_speed_ratio", config_.min_speed_ratio);
+    this->declare_parameter("speed_sigmoid_steepness", config_.speed_sigmoid_steepness);
     
     config_.reference_path_file = this->get_parameter("reference_path_file").as_string();
     config_.path_resolution = this->get_parameter("path_resolution").as_double();
@@ -56,6 +60,10 @@ bool LocalPlanner::initialize() {
     config_.curvature_weight = this->get_parameter("curvature_weight").as_double();
     config_.wheelbase = this->get_parameter("wheelbase").as_double();
     config_.front_lookahead = this->get_parameter("front_lookahead").as_double();
+    config_.hazard_detection_distance = this->get_parameter("hazard_detection_distance").as_double();
+    config_.min_hazard_distance = this->get_parameter("min_hazard_distance").as_double();
+    config_.min_speed_ratio = this->get_parameter("min_speed_ratio").as_double();
+    config_.speed_sigmoid_steepness = this->get_parameter("speed_sigmoid_steepness").as_double();
     
     // Debug: Print loaded parameters
     RCLCPP_INFO(this->get_logger(), "Loaded parameters:");
@@ -265,6 +273,12 @@ std::vector<PathCandidate> LocalPlanner::generate_path_candidates() {
         
         if (candidate.points.empty()) {
             continue;
+        }
+        
+        // Apply sigmoid-based obstacle speed reduction
+        double speed_factor = Utils::calculate_obstacle_speed_factor(candidate.points, obstacles, config_);
+        for (auto& point : candidate.points) {
+            point.velocity *= speed_factor;
         }
         
         // Check if path stays within track boundaries using reference path width data

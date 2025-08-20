@@ -475,6 +475,49 @@ std::vector<double> Utils::generate_biased_offsets(
     return offsets;
 }
 
+double Utils::calculate_obstacle_speed_factor(const std::vector<CartesianPoint>& path_points,
+                                             const std::vector<Obstacle>& obstacles,
+                                             const PlannerConfig& config) {
+    if (obstacles.empty() || path_points.empty()) {
+        return 1.0; // No speed reduction needed
+    }
+    
+    // Find minimum distance from path to any obstacle
+    double min_obstacle_distance = std::numeric_limits<double>::max();
+    
+    for (const auto& obstacle : obstacles) {
+        for (const auto& point : path_points) {
+            double distance = calculate_distance(Point2D(point.x, point.y), Point2D(obstacle.x, obstacle.y));
+            min_obstacle_distance = std::min(min_obstacle_distance, distance);
+        }
+    }
+    
+    // If obstacle is far away, no speed reduction
+    if (min_obstacle_distance >= config.hazard_detection_distance) {
+        return 1.0;
+    }
+    
+    // Use sigmoid function for smooth speed reduction
+    // Sigmoid maps: hazard_detection_distance -> 1.0 (no reduction)
+    //               min_hazard_distance -> min_speed_ratio (maximum reduction)
+    
+    // Normalize distance to [0, 1] range
+    double normalized_distance = (min_obstacle_distance - config.min_hazard_distance) / 
+                                (config.hazard_detection_distance - config.min_hazard_distance);
+    normalized_distance = std::max(0.0, std::min(1.0, normalized_distance));
+    
+    // Apply sigmoid function: sigmoid(steepness * (x - 0.5)) 
+    // Shifted and scaled to map [0,1] -> [min_speed_ratio, 1.0]
+    double sigmoid_input = config.speed_sigmoid_steepness * (normalized_distance - 0.5);
+    double sigmoid_output = 1.0 / (1.0 + std::exp(-sigmoid_input));
+    
+    // Scale sigmoid output to speed range
+    double speed_factor = config.min_speed_ratio + 
+                         (1.0 - config.min_speed_ratio) * sigmoid_output;
+    
+    return speed_factor;
+}
+
 std::vector<CartesianPoint> Utils::generate_lattice_path(
     const Point2D& start_pos, double start_yaw, double lateral_offset,
     const std::vector<RefPoint>& reference_path, const PlannerConfig& config) {
@@ -540,10 +583,10 @@ std::vector<CartesianPoint> Utils::generate_lattice_path(
         FrenetPoint current_frenet = cartesian_to_frenet(Point2D(cart_point.x, cart_point.y), reference_path);
         RefPoint ref_at_s = interpolate_reference_point(reference_path, current_frenet.s);
         
-        // Use reference path's speed profile with potential reduction for high curvature paths
-        double curvature_penalty = std::abs(lateral_offset) * config.curvature_weight;
+        // Use reference path's speed profile with gentle reduction for high curvature paths
+        double curvature_penalty = std::abs(lateral_offset) * config.curvature_weight * 0.3; // Reduce penalty impact
         cart_point.velocity = ref_at_s.velocity * (1.0 - curvature_penalty);
-        cart_point.velocity = std::max(cart_point.velocity, config.max_velocity * 0.3); // Min 30% speed
+        cart_point.velocity = std::max(cart_point.velocity, ref_at_s.velocity * 0.8); // More reasonable minimum: 80% of reference speed
         
         cart_point.curvature = ref_at_s.curvature;
         cart_point.time = i * config.dt;
