@@ -1,0 +1,26 @@
+# Local Planner Configuration
+
+local_planner:
+  ros__parameters:
+    # Reference path (relative to package)
+    reference_path_file: ""  # Empty for test path, or specify CSV filename without extension
+    path_resolution: 0.1
+    
+    # Planning parameters
+    lateral_step: 0.3           # Lateral sampling step (m)
+    max_lateral_offset: 1.5     # Maximum lateral offset (m)
+    planning_horizon: 2.0       # Planning time horizon (s)
+    dt: 0.1                     # Time step (s)
+    planning_frequency: 20.0    # Planning frequency (Hz)
+    
+    # Vehicle parameters
+    max_velocity: 5.0           # Maximum velocity (m/s)
+    max_curvature: 1.0          # Maximum path curvature (1/m)
+    
+    # Cost weights
+    lateral_cost_weight: 1.0
+    obstacle_cost_weight: 10.0
+    curvature_cost_weight: 1.0
+    
+    # Vehicle parameters
+    vehicle_width: 0.35         # Vehicle width for collision checking (m)
