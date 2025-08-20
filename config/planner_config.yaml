@@ -15,13 +15,13 @@ local_planner:
     # Planning parameters
     lateral_step: 0.3           # Lateral sampling step (m)
     max_lateral_offset: 1.5     # Maximum lateral offset (m)
-    planning_horizon: 1.0       # Planning time horizon (s) - increased for better lookahead
+    planning_horizon: 0.8       # Planning time horizon (s) - increased for better lookahead
     dt: 0.1                     # Time step (s)
     planning_frequency: 20.0    # Planning frequency (Hz)
     
     # Path smoothing parameters (to fix lattice deformation)
     min_planning_distance: 1.5   # Minimum planning distance (m) for better lookahead
-    transition_smoothness: 5.0   # Transition smoothness factor (higher = smoother)
+    transition_smoothness: 2.0   # Transition smoothness factor (higher = smoother)
     curvature_weight: 0.5        # Weight for curvature continuity in cost function
     
     # Vehicle geometry for front-wheel planning
