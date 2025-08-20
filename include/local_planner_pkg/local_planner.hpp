@@ -76,15 +76,10 @@ struct PlannerConfig {
     double min_sampling_density = 0.1; // Minimum offset step size
     double max_sampling_density = 0.5; // Maximum offset step size
     
-    // Speed control parameters
+    // Speed control parameters (for obstacle avoidance)
     double hazard_detection_distance = 3.0;
     double min_hazard_distance = 0.5;
     double min_speed_ratio = 0.1;      // Minimum speed as fraction of reference speed
-    
-    // Cost weights
-    double lateral_cost_weight = 1.0;
-    double obstacle_cost_weight = 10.0;
-    double curvature_cost_weight = 1.0;
 };
 
 class LocalPlanner : public rclcpp::Node {

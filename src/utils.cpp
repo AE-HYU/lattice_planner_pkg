@@ -310,7 +310,8 @@ std::vector<double> Utils::generate_biased_offsets(
     // Bias towards center - if vehicle is left, sample more on the right (and vice versa)
     double bias_factor = config.bias_strength;
     
-    // Generate offsets with adaptive density
+    // Generate offsets from left to right (negative to positive)
+    // This creates indexed paths from 0 (leftmost) to N-1 (rightmost)
     for (double offset = -max_offset; offset <= max_offset; offset += config.lateral_step) {
         // Calculate distance from vehicle's current lateral position
         double distance_from_vehicle = std::abs(offset - current_d);
@@ -394,22 +395,17 @@ double Utils::calculate_path_cost(const PathCandidate& path,
         return std::numeric_limits<double>::max();
     }
     
+    // Refined cost function: cost[i] = lateral_offset + (1 / obstacle_distance)
     double cost = 0.0;
     
-    // Lateral offset cost - prefer staying close to raceline
-    cost += config.lateral_cost_weight * std::abs(path.lateral_offset);
+    // Lateral offset cost - penalize deviation from centerline
+    cost += std::abs(path.lateral_offset);
     
-    // Curvature cost - penalize sharp turns
-    double total_curvature = 0.0;
-    for (const auto& point : path.points) {
-        total_curvature += std::abs(point.curvature);
-    }
-    cost += config.curvature_cost_weight * total_curvature;
-    
-    // Obstacle cost - only penalize if obstacles are in the way
+    // Obstacle distance cost - inverse of minimum distance to obstacles
     if (!obstacles.empty()) {
         double min_obstacle_distance = std::numeric_limits<double>::max();
         
+        // Find minimum distance from path to any obstacle
         for (const auto& point : path.points) {
             for (const auto& obstacle : obstacles) {
                 double distance = calculate_distance(Point2D(point.x, point.y), Point2D(obstacle.x, obstacle.y));
@@ -417,10 +413,11 @@ double Utils::calculate_path_cost(const PathCandidate& path,
             }
         }
         
-        if (min_obstacle_distance < config.collision_radius + config.safety_margin) {
-            cost += config.obstacle_cost_weight * 100.0;  // Very high penalty for collision
+        // Add inverse distance cost (closer obstacles = higher cost)
+        if (min_obstacle_distance > 0.01) { // Avoid division by zero
+            cost += (1.0 / min_obstacle_distance);
         } else {
-            cost += config.obstacle_cost_weight / (min_obstacle_distance + 0.1);  // Inverse distance penalty
+            cost += 1000.0; // Very high cost for extremely close obstacles
         }
     }
     

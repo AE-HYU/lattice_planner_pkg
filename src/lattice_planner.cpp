@@ -266,30 +266,47 @@ PathCandidate LocalPlanner::select_best_path(const std::vector<PathCandidate>& c
         return PathCandidate();
     }
     
-    // Find the safest path with lowest cost
-    PathCandidate best_path = candidates[0];
+    // Step 1: Check for collision across all paths
+    bool any_collision = false;
+    int reference_path_index = -1;
+    
+    // Find reference path (lateral_offset closest to 0) and check for collisions
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        if (!candidates[i].is_safe) {
+            any_collision = true;
+        }
+        
+        // Find reference path (closest to zero lateral offset)
+        if (reference_path_index == -1 || 
+            std::abs(candidates[i].lateral_offset) < std::abs(candidates[reference_path_index].lateral_offset)) {
+            reference_path_index = static_cast<int>(i);
+        }
+    }
+    
+    // Step 2: If no collision detected, select reference path
+    if (!any_collision && reference_path_index >= 0) {
+        RCLCPP_DEBUG(this->get_logger(), "No collision detected - selecting reference path (offset: %.2f)", 
+                     candidates[reference_path_index].lateral_offset);
+        return candidates[reference_path_index];
+    }
+    
+    // Step 3: If collision detected, find path with minimum cost
+    RCLCPP_DEBUG(this->get_logger(), "Collision detected - calculating costs for optimal path");
+    
     double min_cost = std::numeric_limits<double>::max();
+    size_t best_index = 0;
     
-    // First priority: safe paths
-    for (const auto& candidate : candidates) {
-        if (candidate.is_safe && candidate.cost < min_cost) {
-            min_cost = candidate.cost;
-            best_path = candidate;
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        if (candidates[i].cost < min_cost) {
+            min_cost = candidates[i].cost;
+            best_index = i;
         }
     }
     
-    // If no safe path found, choose least dangerous
-    if (min_cost == std::numeric_limits<double>::max()) {
-        min_cost = std::numeric_limits<double>::max();
-        for (const auto& candidate : candidates) {
-            if (candidate.cost < min_cost) {
-                min_cost = candidate.cost;
-                best_path = candidate;
-            }
-        }
-    }
+    RCLCPP_DEBUG(this->get_logger(), "Selected path with offset: %.2f, cost: %.3f", 
+                 candidates[best_index].lateral_offset, min_cost);
     
-    return best_path;
+    return candidates[best_index];
 }
 
 bool LocalPlanner::is_path_safe(const PathCandidate& path) {

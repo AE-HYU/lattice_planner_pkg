@@ -16,11 +16,4 @@ local_planner:
     # Vehicle parameters
     max_velocity: 5.0           # Maximum velocity (m/s)
     max_curvature: 1.0          # Maximum path curvature (1/m)
-    
-    # Cost weights
-    lateral_cost_weight: 1.0
-    obstacle_cost_weight: 10.0
-    curvature_cost_weight: 1.0
-    
-    # Vehicle parameters
     vehicle_width: 0.35         # Vehicle width for collision checking (m)
