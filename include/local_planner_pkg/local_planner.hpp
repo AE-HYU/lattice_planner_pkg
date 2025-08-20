@@ -76,6 +76,10 @@ struct PlannerConfig {
     double transition_smoothness = 5.0;     // Transition smoothness factor
     double curvature_weight = 0.5;          // Weight for curvature continuity
     
+    // Vehicle geometry for front-wheel planning
+    double wheelbase = 0.32;                // Distance from rear to front axle (m)
+    double front_lookahead = 0.5;           // Additional lookahead beyond front axle (m)
+    
     // Biased sampling parameters
     double bias_strength = 2.0;        // How much to bias towards center
     double min_sampling_density = 0.1; // Minimum offset step size
@@ -101,10 +105,13 @@ private:
     // Path generation and selection
     std::vector<PathCandidate> generate_path_candidates();
     PathCandidate select_best_path(const std::vector<PathCandidate>& candidates);
+    PathCandidate apply_smooth_transition(const PathCandidate& selected_path, 
+                                         const std::vector<PathCandidate>& candidates);
     
     // Safety checks
     bool is_path_safe(const PathCandidate& path);
     bool is_path_safe_in_grid(const PathCandidate& path);
+    bool check_track_boundaries(const PathCandidate& path);
     bool check_collision(const CartesianPoint& point, const std::vector<Obstacle>& obstacles);
     
     
@@ -128,6 +135,11 @@ private:
     double vehicle_yaw_, vehicle_velocity_;
     bool odom_received_;
     std::mutex vehicle_state_mutex_;
+    
+    // Path history for smooth transitions
+    PathCandidate last_selected_path_;
+    bool has_previous_path_;
+    std::mutex path_history_mutex_;
     
     // Occupancy grid and obstacles
     nav_msgs::msg::OccupancyGrid::SharedPtr current_grid_;

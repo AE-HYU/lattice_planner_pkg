@@ -43,6 +43,7 @@ public:
     // Cost calculation
     static double calculate_path_cost(const PathCandidate& path, 
                                      const std::vector<Obstacle>& obstacles,
+                                     const std::vector<RefPoint>& reference_path,
                                      const PlannerConfig& config);
     
     // Conversion utilities

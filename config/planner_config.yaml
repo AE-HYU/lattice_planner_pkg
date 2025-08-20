@@ -15,7 +15,7 @@ local_planner:
     # Planning parameters
     lateral_step: 0.3           # Lateral sampling step (m)
     max_lateral_offset: 1.5     # Maximum lateral offset (m)
-    planning_horizon: 1.5       # Planning time horizon (s) - increased for better lookahead
+    planning_horizon: 1.0       # Planning time horizon (s) - increased for better lookahead
     dt: 0.1                     # Time step (s)
     planning_frequency: 20.0    # Planning frequency (Hz)
     
@@ -24,7 +24,16 @@ local_planner:
     transition_smoothness: 5.0   # Transition smoothness factor (higher = smoother)
     curvature_weight: 0.5        # Weight for curvature continuity in cost function
     
+    # Vehicle geometry for front-wheel planning
+    wheelbase: 0.32              # Distance from rear to front axle (m)
+    front_lookahead: 0.1         # Additional lookahead beyond front axle (m)
+    
     # Vehicle parameters
     max_velocity: 8.0           # Maximum velocity (m/s)
     max_curvature: 0.892          # Maximum path curvature (1/m)
     vehicle_width: 0.35         # Vehicle width for collision checking (m)
+    
+    # Progressive lattice expansion parameters
+    lattice_initial_width: 0.1       # Initial lateral offset near rear axle (m) - small for sparse near rear
+    lattice_expansion_rate: 0.05     # How quickly lattices expand per meter forward
+    lattice_expansion_distance: 8.0  # Distance over which to apply progressive expansion (m)

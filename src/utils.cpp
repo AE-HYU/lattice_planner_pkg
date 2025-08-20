@@ -422,38 +422,55 @@ std::vector<double> Utils::generate_biased_offsets(
     double left_boundary = ref_point.width_left;
     double right_boundary = -ref_point.width_right;
     
-    // Determine which side the vehicle is closer to
-    double center_offset = (left_boundary + right_boundary) / 2.0;
-    double vehicle_offset_from_center = current_d - center_offset;
+    // Calculate available space on each side
+    double space_to_left = left_boundary - current_d;
+    double space_to_right = current_d - right_boundary;
     
-    // Generate biased offsets
-    double max_offset = std::min(config.max_lateral_offset, 
-                                std::min(left_boundary - 0.2, std::abs(right_boundary) - 0.2));
+    // Safety margins
+    double safety_margin = 0.2;
+    double max_left = std::min(config.max_lateral_offset, left_boundary - safety_margin);
+    double max_right = std::min(config.max_lateral_offset, std::abs(right_boundary) - safety_margin);
     
-    // Bias towards center - if vehicle is left, sample more on the right (and vice versa)
-    double bias_factor = config.bias_strength;
+    // Generate offsets with adaptive sampling density
+    // Rule: Dense sampling on narrow side, sparse sampling on wide side
     
-    // Generate offsets from left to right (negative to positive)
-    // This creates indexed paths from 0 (leftmost) to N-1 (rightmost)
-    for (double offset = -max_offset; offset <= max_offset; offset += config.lateral_step) {
-        // Calculate distance from vehicle's current lateral position
-        double distance_from_vehicle = std::abs(offset - current_d);
-        
-        // Biased sampling: if vehicle is left of center, favor right offsets
-        double bias_weight = 1.0;
-        if (vehicle_offset_from_center > 0.1) { // Vehicle is left
-            bias_weight = (offset < current_d) ? bias_factor : 1.0;
-        } else if (vehicle_offset_from_center < -0.1) { // Vehicle is right
-            bias_weight = (offset > current_d) ? bias_factor : 1.0;
-        }
-        
-        // Skip some offsets based on bias (lower bias_weight = higher chance to skip)
-        if (bias_weight < bias_factor && (rand() % 100) > (bias_weight * 50)) {
-            continue;
-        }
-        
-        offsets.push_back(offset);
+    // Left side offsets (negative values)
+    double left_step = config.lateral_step;
+    if (space_to_left < space_to_right) {
+        // Vehicle is close to left boundary -> dense left sampling
+        left_step = config.lateral_step * 0.5; // Denser sampling
+    } else {
+        // Vehicle is close to right boundary -> sparse left sampling  
+        left_step = config.lateral_step * 1.5; // Sparser sampling
     }
+    
+    for (double offset = -max_left; offset < current_d; offset += left_step) {
+        if (offset >= right_boundary + safety_margin) {
+            offsets.push_back(offset);
+        }
+    }
+    
+    // Always include current position
+    offsets.push_back(current_d);
+    
+    // Right side offsets (positive values)
+    double right_step = config.lateral_step;
+    if (space_to_right < space_to_left) {
+        // Vehicle is close to right boundary -> dense right sampling
+        right_step = config.lateral_step * 0.5; // Denser sampling
+    } else {
+        // Vehicle is close to left boundary -> sparse right sampling
+        right_step = config.lateral_step * 1.5; // Sparser sampling
+    }
+    
+    for (double offset = current_d + right_step; offset <= max_right; offset += right_step) {
+        if (offset <= left_boundary - safety_margin) {
+            offsets.push_back(offset);
+        }
+    }
+    
+    // Sort offsets from left to right for indexing consistency
+    std::sort(offsets.begin(), offsets.end());
     
     return offsets;
 }
@@ -539,12 +556,13 @@ std::vector<CartesianPoint> Utils::generate_lattice_path(
 
 double Utils::calculate_path_cost(const PathCandidate& path, 
                                  const std::vector<Obstacle>& obstacles,
+                                 const std::vector<RefPoint>& reference_path,
                                  const PlannerConfig& config) {
     if (path.points.empty()) {
         return std::numeric_limits<double>::max();
     }
     
-    // Algorithm: cost = lateral_offset + (1 / obstacle_distance)
+    // Algorithm: cost = lateral_offset + (1 / obstacle_distance) + obstacle_side_penalty
     double cost = 0.0;
     
     // 1. Lateral Offset Calculation:
@@ -553,16 +571,47 @@ double Utils::calculate_path_cost(const PathCandidate& path,
     double lateral_offset = std::abs(path.lateral_offset);
     cost += lateral_offset;
     
-    // 2. Obstacle Distance Calculation:
-    // Minimum distance from the path to the nearest obstacle
+    // 2. Enhanced Obstacle Distance Calculation with Side-Awareness:
     if (!obstacles.empty()) {
         double min_obstacle_distance = std::numeric_limits<double>::max();
+        double obstacle_side_penalty = 0.0;
         
-        // Find minimum distance from path to any obstacle
-        for (const auto& point : path.points) {
-            for (const auto& obstacle : obstacles) {
+        // Find closest obstacle and determine its lateral position
+        Point2D closest_obstacle_pos;
+        for (const auto& obstacle : obstacles) {
+            double min_dist_to_path = std::numeric_limits<double>::max();
+            
+            for (const auto& point : path.points) {
                 double distance = calculate_distance(Point2D(point.x, point.y), Point2D(obstacle.x, obstacle.y));
-                min_obstacle_distance = std::min(min_obstacle_distance, distance);
+                min_dist_to_path = std::min(min_dist_to_path, distance);
+            }
+            
+            if (min_dist_to_path < min_obstacle_distance) {
+                min_obstacle_distance = min_dist_to_path;
+                closest_obstacle_pos.x = obstacle.x;
+                closest_obstacle_pos.y = obstacle.y;
+            }
+        }
+        
+        // Calculate side-aware penalty using proper reference path
+        if (min_obstacle_distance < 5.0) { // Only apply side penalty for nearby obstacles
+            // Convert obstacle position to Frenet coordinates to get its lateral position
+            FrenetPoint obstacle_frenet = cartesian_to_frenet(closest_obstacle_pos, reference_path);
+            double obstacle_lateral_offset = obstacle_frenet.d;
+            double path_lateral_offset = path.lateral_offset;
+            
+            // Smart side-aware penalty:
+            // If obstacle is on right (negative d) and path goes left (positive d) -> bonus
+            // If obstacle is on left (positive d) and path goes right (negative d) -> bonus  
+            // If obstacle and path are on same side -> penalty
+            if ((obstacle_lateral_offset > 0 && path_lateral_offset > 0) || 
+                (obstacle_lateral_offset < 0 && path_lateral_offset < 0)) {
+                // Same side: penalty (dangerous - path goes toward obstacle side)
+                obstacle_side_penalty = 0.8;
+            } else if ((obstacle_lateral_offset > 0 && path_lateral_offset < 0) ||
+                      (obstacle_lateral_offset < 0 && path_lateral_offset > 0)) {
+                // Opposite side: bonus (safe - path goes away from obstacle)
+                obstacle_side_penalty = -0.4;
             }
         }
         
@@ -572,6 +621,9 @@ double Utils::calculate_path_cost(const PathCandidate& path,
         } else {
             cost += 1000.0; // Very high cost for extremely close obstacles
         }
+        
+        // Add side-aware penalty
+        cost += obstacle_side_penalty;
     }
     
     return cost;

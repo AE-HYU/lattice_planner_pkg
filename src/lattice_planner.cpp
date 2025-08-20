@@ -10,7 +10,8 @@ LocalPlanner::LocalPlanner()
     : Node("local_planner"),
       vehicle_yaw_(0.0),
       vehicle_velocity_(0.0),
-      odom_received_(false) {
+      odom_received_(false),
+      has_previous_path_(false) {
     
     if (!initialize()) {
         RCLCPP_ERROR(this->get_logger(), "Failed to initialize local planner");
@@ -39,6 +40,8 @@ bool LocalPlanner::initialize() {
     this->declare_parameter("min_planning_distance", config_.min_planning_distance);
     this->declare_parameter("transition_smoothness", config_.transition_smoothness);
     this->declare_parameter("curvature_weight", config_.curvature_weight);
+    this->declare_parameter("wheelbase", config_.wheelbase);
+    this->declare_parameter("front_lookahead", config_.front_lookahead);
     
     config_.reference_path_file = this->get_parameter("reference_path_file").as_string();
     config_.path_resolution = this->get_parameter("path_resolution").as_double();
@@ -51,6 +54,8 @@ bool LocalPlanner::initialize() {
     config_.min_planning_distance = this->get_parameter("min_planning_distance").as_double();
     config_.transition_smoothness = this->get_parameter("transition_smoothness").as_double();
     config_.curvature_weight = this->get_parameter("curvature_weight").as_double();
+    config_.wheelbase = this->get_parameter("wheelbase").as_double();
+    config_.front_lookahead = this->get_parameter("front_lookahead").as_double();
     
     // Debug: Print loaded parameters
     RCLCPP_INFO(this->get_logger(), "Loaded parameters:");
@@ -206,8 +211,18 @@ void LocalPlanner::plan_paths() {
         return;
     }
     
-    // Select best path
+    // Select best path with smooth transition consideration
     PathCandidate selected_path = select_best_path(candidates);
+    
+    // Apply smooth transition logic
+    selected_path = apply_smooth_transition(selected_path, candidates);
+    
+    // Update path history
+    {
+        std::lock_guard<std::mutex> lock(path_history_mutex_);
+        last_selected_path_ = selected_path;
+        has_previous_path_ = true;
+    }
     
     // Publish results
     publish_selected_path(selected_path);
@@ -252,9 +267,14 @@ std::vector<PathCandidate> LocalPlanner::generate_path_candidates() {
             continue;
         }
         
-        // Check if path stays within road boundaries (simplified check)
-        if (std::abs(candidate.lateral_offset) > config_.max_lateral_offset) {
-            candidate.out_of_track = true;
+        // Check if path stays within track boundaries using reference path width data
+        bool stays_within_track = check_track_boundaries(candidate);
+        candidate.out_of_track = !stays_within_track;
+        
+        if (candidate.out_of_track) {
+            candidate.is_safe = false;
+            RCLCPP_DEBUG(this->get_logger(), "Path rejected: out of track boundaries (offset: %.2f)", 
+                        candidate.lateral_offset);
             continue;
         }
         
@@ -264,7 +284,7 @@ std::vector<PathCandidate> LocalPlanner::generate_path_candidates() {
         // Speed reduction will be handled during path cost calculation
         
         // Calculate cost
-        candidate.cost = Utils::calculate_path_cost(candidate, obstacles, config_);
+        candidate.cost = Utils::calculate_path_cost(candidate, obstacles, reference_path_, config_);
         
         candidates.push_back(candidate);
     }
@@ -327,11 +347,79 @@ PathCandidate LocalPlanner::select_best_path(const std::vector<PathCandidate>& c
     return candidates[0];
 }
 
+PathCandidate LocalPlanner::apply_smooth_transition(const PathCandidate& selected_path, 
+                                                   const std::vector<PathCandidate>& candidates) {
+    std::lock_guard<std::mutex> lock(path_history_mutex_);
+    
+    if (!has_previous_path_) {
+        return selected_path; // No previous path, use selected
+    }
+    
+    // Check if the new path is drastically different from the previous one
+    double offset_change = std::abs(selected_path.lateral_offset - last_selected_path_.lateral_offset);
+    double transition_threshold = config_.lateral_step * 2.0; // Allow max 2 steps change
+    
+    if (offset_change <= transition_threshold) {
+        return selected_path; // Smooth transition, use selected path
+    }
+    
+    // Large change detected - find intermediate path for smoother transition
+    RCLCPP_DEBUG(this->get_logger(), "Large offset change detected: %.2f -> %.2f (change: %.2f)", 
+                 last_selected_path_.lateral_offset, selected_path.lateral_offset, offset_change);
+    
+    // Find path closer to previous selection for smoother transition
+    double target_offset = last_selected_path_.lateral_offset;
+    if (selected_path.lateral_offset > last_selected_path_.lateral_offset) {
+        target_offset += transition_threshold; // Move gradually right
+    } else {
+        target_offset -= transition_threshold; // Move gradually left
+    }
+    
+    // Find candidate closest to target offset
+    PathCandidate smooth_transition = selected_path;
+    double min_diff = std::abs(selected_path.lateral_offset - target_offset);
+    
+    for (const auto& candidate : candidates) {
+        if (candidate.is_safe && !candidate.out_of_track) {
+            double diff = std::abs(candidate.lateral_offset - target_offset);
+            if (diff < min_diff) {
+                min_diff = diff;
+                smooth_transition = candidate;
+            }
+        }
+    }
+    
+    RCLCPP_DEBUG(this->get_logger(), "Smooth transition: using offset %.2f instead of %.2f", 
+                 smooth_transition.lateral_offset, selected_path.lateral_offset);
+    
+    return smooth_transition;
+}
+
 bool LocalPlanner::is_path_safe(const PathCandidate& path) {
     std::lock_guard<std::mutex> lock(obstacles_mutex_);
     
     for (const auto& point : path.points) {
         if (check_collision(point, current_obstacles_)) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+bool LocalPlanner::check_track_boundaries(const PathCandidate& path) {
+    // Check if path stays within track boundaries using reference path width data
+    for (const auto& point : path.points) {
+        // Convert path point to Frenet coordinates to get lateral offset
+        FrenetPoint frenet = Utils::cartesian_to_frenet(Point2D(point.x, point.y), reference_path_);
+        
+        // Get reference point at this location to check boundaries
+        RefPoint ref_point = Utils::interpolate_reference_point(reference_path_, frenet.s);
+        
+        // Check if lateral offset exceeds track boundaries
+        if (frenet.d > ref_point.width_left || frenet.d < -ref_point.width_right) {
+            RCLCPP_DEBUG(this->get_logger(), "Point (%.2f, %.2f) outside track: d=%.2f, left_limit=%.2f, right_limit=%.2f", 
+                        point.x, point.y, frenet.d, ref_point.width_left, -ref_point.width_right);
             return false;
         }
     }
@@ -346,8 +434,32 @@ bool LocalPlanner::is_path_safe_in_grid(const PathCandidate& path) {
         return true; // No grid data, assume safe
     }
     
-    // Simplified safety check - for now assume all paths are safe
-    // TODO: Implement proper occupancy grid collision checking
+    // Check each point in the path against the occupancy grid
+    for (const auto& point : path.points) {
+        // Convert world coordinates to grid coordinates
+        int grid_x = static_cast<int>((point.x - current_grid_->info.origin.position.x) / current_grid_->info.resolution);
+        int grid_y = static_cast<int>((point.y - current_grid_->info.origin.position.y) / current_grid_->info.resolution);
+        
+        // Check bounds
+        if (grid_x < 0 || grid_x >= static_cast<int>(current_grid_->info.width) ||
+            grid_y < 0 || grid_y >= static_cast<int>(current_grid_->info.height)) {
+            continue; // Point outside grid, skip
+        }
+        
+        // Check occupancy value
+        int index = grid_y * current_grid_->info.width + grid_x;
+        if (index >= 0 && index < static_cast<int>(current_grid_->data.size())) {
+            int8_t occupancy_value = current_grid_->data[index];
+            
+            // Consider cells with occupancy > 50 as occupied (walls/obstacles)
+            if (occupancy_value > 50) {
+                RCLCPP_DEBUG(this->get_logger(), "Path point (%.2f, %.2f) hits occupied cell: occupancy=%d", 
+                            point.x, point.y, occupancy_value);
+                return false;
+            }
+        }
+    }
+    
     return true;
 }
 
