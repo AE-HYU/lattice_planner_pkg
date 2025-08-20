@@ -277,47 +277,54 @@ PathCandidate LocalPlanner::select_best_path(const std::vector<PathCandidate>& c
         return PathCandidate();
     }
     
-    // Step 1: Check for collision across all paths
-    bool any_collision = false;
+    // Step 1: Store all generated candidate paths in container (already done via candidates parameter)
+    // paths[i] represents each potential trajectory
+    
+    // Step 2: Collision Check - Iterate through all paths from i = 0 to paths.size() - 1
+    bool collision_detected = false;
     int reference_path_index = -1;
     
-    // Find reference path (lateral_offset closest to 0) and check for collisions
     for (size_t i = 0; i < candidates.size(); ++i) {
+        // Perform collision check for each path
         if (!candidates[i].is_safe) {
-            any_collision = true;
+            collision_detected = true;
         }
         
-        // Find reference path (closest to zero lateral offset)
+        // Find reference path (lateral_offset closest to 0.0)
         if (reference_path_index == -1 || 
             std::abs(candidates[i].lateral_offset) < std::abs(candidates[reference_path_index].lateral_offset)) {
             reference_path_index = static_cast<int>(i);
         }
     }
     
-    // Step 2: If no collision detected, select reference path
-    if (!any_collision && reference_path_index >= 0) {
-        RCLCPP_DEBUG(this->get_logger(), "No collision detected - selecting reference path (offset: %.2f)", 
+    // Step 3: If no collision detected on any path, return predefined reference path
+    if (!collision_detected && reference_path_index >= 0) {
+        RCLCPP_DEBUG(this->get_logger(), "No collision detected - returning reference path (offset: %.2f)", 
                      candidates[reference_path_index].lateral_offset);
         return candidates[reference_path_index];
     }
     
-    // Step 3: If collision detected, find path with minimum cost
-    RCLCPP_DEBUG(this->get_logger(), "Collision detected - calculating costs for optimal path");
+    // Step 4: Cost Calculation (if collision detected)
+    // For each path paths[i], calculate cost = lateral_offset + (1 / obstacle_distance)
+    RCLCPP_DEBUG(this->get_logger(), "Collision detected - proceeding with cost-based selection");
     
-    double min_cost = std::numeric_limits<double>::max();
-    size_t best_index = 0;
+    // Step 5: Optimal Path Selection using std::min_element for efficiency
+    auto min_cost_it = std::min_element(candidates.begin(), candidates.end(),
+        [](const PathCandidate& a, const PathCandidate& b) {
+            return a.cost < b.cost;
+        });
     
-    for (size_t i = 0; i < candidates.size(); ++i) {
-        if (candidates[i].cost < min_cost) {
-            min_cost = candidates[i].cost;
-            best_index = i;
-        }
+    if (min_cost_it != candidates.end()) {
+        size_t best_index = std::distance(candidates.begin(), min_cost_it);
+        RCLCPP_DEBUG(this->get_logger(), "Selected optimal path [%zu] with offset: %.2f, cost: %.3f", 
+                     best_index, min_cost_it->lateral_offset, min_cost_it->cost);
+        
+        // Step 6: Return the optimal path to next module (control unit)
+        return *min_cost_it;
     }
     
-    RCLCPP_DEBUG(this->get_logger(), "Selected path with offset: %.2f, cost: %.3f", 
-                 candidates[best_index].lateral_offset, min_cost);
-    
-    return candidates[best_index];
+    // Fallback: return first candidate if min_element fails
+    return candidates[0];
 }
 
 bool LocalPlanner::is_path_safe(const PathCandidate& path) {

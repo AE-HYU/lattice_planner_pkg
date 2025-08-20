@@ -544,26 +544,17 @@ double Utils::calculate_path_cost(const PathCandidate& path,
         return std::numeric_limits<double>::max();
     }
     
+    // Algorithm: cost = lateral_offset + (1 / obstacle_distance)
     double cost = 0.0;
     
-    // 1. Lateral offset cost - penalize deviation from centerline
-    cost += std::abs(path.lateral_offset);
+    // 1. Lateral Offset Calculation:
+    // For reference path: lateral offset = 0.0
+    // For all other paths: lateral offset = abs(d_offset) from reference path
+    double lateral_offset = std::abs(path.lateral_offset);
+    cost += lateral_offset;
     
-    // 2. Path smoothness cost - penalize sharp curvature changes (anti-deformation)
-    if (path.points.size() > 2) {
-        double curvature_variation = 0.0;
-        for (size_t i = 1; i < path.points.size() - 1; ++i) {
-            double curvature_diff = std::abs(path.points[i+1].curvature - path.points[i].curvature);
-            curvature_variation += curvature_diff;
-        }
-        cost += config.curvature_weight * curvature_variation;
-    }
-    
-    // 3. Lateral offset change rate - penalize rapid lateral movements (anti-oversteer)
-    double lateral_change_cost = std::abs(path.lateral_offset) * 0.5;
-    cost += lateral_change_cost;
-    
-    // 4. Obstacle distance cost - inverse of minimum distance to obstacles
+    // 2. Obstacle Distance Calculation:
+    // Minimum distance from the path to the nearest obstacle
     if (!obstacles.empty()) {
         double min_obstacle_distance = std::numeric_limits<double>::max();
         
@@ -575,7 +566,7 @@ double Utils::calculate_path_cost(const PathCandidate& path,
             }
         }
         
-        // Add inverse distance cost (closer obstacles = higher cost)
+        // Add inverse distance cost: (1 / obstacle_distance)
         if (min_obstacle_distance > 0.01) { // Avoid division by zero
             cost += (1.0 / min_obstacle_distance);
         } else {
