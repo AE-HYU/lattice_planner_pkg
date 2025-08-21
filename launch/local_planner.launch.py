@@ -38,7 +38,8 @@ def generate_launch_description():
             {'use_sim_time': LaunchConfiguration('use_sim_time')}
         ],
         remappings=[
-            ('/odom', '/ego_racecar/odom'),
+            # ('/odom', '/ego_racecar/odom'),
+            ('/odom', '/pf/pose/odom'),
             ('/map', '/updated_map'),
         ],
         condition=IfCondition(LaunchConfiguration('sim_mode'))
