@@ -427,7 +427,7 @@ std::vector<double> Utils::generate_biased_offsets(
     double space_to_right = current_d - right_boundary;
     
     // Safety margins
-    double safety_margin = 0.2;
+    double safety_margin = config.safety_margin;
     double max_left = std::min(config.max_lateral_offset, left_boundary - safety_margin);
     double max_right = std::min(config.max_lateral_offset, std::abs(right_boundary) - safety_margin);
     

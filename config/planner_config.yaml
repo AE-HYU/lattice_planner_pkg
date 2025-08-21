@@ -34,6 +34,7 @@ local_planner:
     max_velocity: 8.0           # Maximum velocity (m/s)
     max_curvature: 0.892          # Maximum path curvature (1/m)
     vehicle_width: 0.35         # Vehicle width for collision checking (m)
+    safety_margin: 0.3          # Safety margin from track boundaries (m) - increased from 0.2
     
     # Progressive lattice expansion parameters
     lattice_initial_width: 0.1       # Initial lateral offset near rear axle (m) - small for sparse near rear

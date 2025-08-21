@@ -36,6 +36,7 @@ bool LocalPlanner::initialize() {
     this->declare_parameter("planning_horizon", config_.planning_horizon);
     this->declare_parameter("max_velocity", config_.max_velocity);
     this->declare_parameter("vehicle_width", config_.vehicle_width);
+    this->declare_parameter("safety_margin", config_.safety_margin);
     this->declare_parameter("planning_frequency", config_.planning_frequency);
     this->declare_parameter("min_planning_distance", config_.min_planning_distance);
     this->declare_parameter("transition_smoothness", config_.transition_smoothness);
@@ -54,6 +55,7 @@ bool LocalPlanner::initialize() {
     config_.planning_horizon = this->get_parameter("planning_horizon").as_double();
     config_.max_velocity = this->get_parameter("max_velocity").as_double();
     config_.vehicle_width = this->get_parameter("vehicle_width").as_double();
+    config_.safety_margin = this->get_parameter("safety_margin").as_double();
     config_.planning_frequency = this->get_parameter("planning_frequency").as_double();
     config_.min_planning_distance = this->get_parameter("min_planning_distance").as_double();
     config_.transition_smoothness = this->get_parameter("transition_smoothness").as_double();

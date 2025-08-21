@@ -69,6 +69,7 @@ struct PlannerConfig {
     double max_velocity = 5.0;
     double max_curvature = 1.0;
     double vehicle_width = 0.35;        // Vehicle width for collision checking
+    double safety_margin = 0.2;         // Safety margin from track boundaries (m)
     double planning_frequency = 20.0;
     
     // Path smoothing parameters (to fix lattice deformation)
