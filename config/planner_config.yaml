@@ -17,12 +17,12 @@ local_planner:
     # Planning parameters
     lateral_step: 0.28           # Lateral sampling step (m)
     max_lateral_offset: 1.5     # Maximum lateral offset (m)
-    planning_horizon: 0.5       # Planning time horizon (s) - increased for better lookahead
+    planning_horizon: 0.3       # Planning time horizon (s) - increased for better lookahead
     dt: 0.1                     # Time step (s)
     planning_frequency: 20.0    # Planning frequency (Hz)
     
     # Path smoothing parameters (to fix lattice deformation)
-    min_planning_distance: 1.3   # Minimum planning distance (m) for better lookahead
+    min_planning_distance: 1.0   # Minimum planning distance (m) for better lookahead
     transition_smoothness: 2.0   # Transition smoothness factor (higher = smoother)
     curvature_weight: 0.5        # Weight for curvature continuity in cost function
     
@@ -44,5 +44,5 @@ local_planner:
     # Speed control parameters (for obstacle avoidance)
     hazard_detection_distance: 3.0   # Distance at which to start reducing speed (m)
     min_hazard_distance: 0.5         # Distance at which maximum speed reduction occurs (m)
-    min_speed_ratio: 0.6             # Minimum speed as fraction of reference speed (0.6 = 60%)
+    min_speed_ratio: 0.4             # Minimum speed as fraction of reference speed (0.4 = 40%)
     speed_sigmoid_steepness: 2.0     # Steepness of sigmoid speed reduction curve (higher = more aggressive)
