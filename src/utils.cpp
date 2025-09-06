@@ -75,16 +75,29 @@ std::vector<RefPoint> Utils::load_reference_path_from_csv(const std::string& fil
     int x_col = -1, y_col = -1, vel_col = -1;
     
     while (std::getline(file, line)) {
-        if (line.empty() || line[0] == '#') {
+        if (line.empty()) {
             continue;
+        }
+        
+        // Check if this is a header comment line (contains column names)
+        if (line[0] == '#' && first_line) {
+            // Check if this comment contains column headers (s_m, x_m, y_m, etc.)
+            if (line.find("x_m") != std::string::npos && line.find("y_m") != std::string::npos) {
+                // Remove the '#' and treat as header
+                line = line.substr(1);
+            } else {
+                continue;  // Skip other comment lines
+            }
+        } else if (line[0] == '#') {
+            continue;  // Skip comment lines after header is found
         }
         
         std::stringstream ss(line);
         std::string cell;
         std::vector<std::string> row;
         
-        // Parse CSV line
-        while (std::getline(ss, cell, ',')) {
+        // Parse CSV line (semicolon-separated)
+        while (std::getline(ss, cell, ';')) {
             // Trim whitespace
             cell.erase(0, cell.find_first_not_of(" \t"));
             cell.erase(cell.find_last_not_of(" \t") + 1);
