@@ -10,14 +10,14 @@ local_planner:
     # - "first_map_raceline"
     # - "" (empty for default test path)
     # reference_path_file: "Spielberg_global"  # CSV filename without extension
-    reference_path_file: "slam_map1_ccw"  # CSV filename without extension
+    reference_path_file: "sibal1_5ms"  # CSV filename without extension
 
     path_resolution: 0.1
     
     # Planning parameters
-    lateral_step: 0.25           # Lateral sampling step (m)
-    max_lateral_offset: 1.8     # Maximum lateral offset (m)
-    planning_horizon: 0.4       # Planning time horizon (s) - increased for better lookahead
+    lateral_step: 0.35           # Lateral sampling step (m)
+    max_lateral_offset: 1.2     # Maximum lateral offset (m)
+    planning_horizon: 0.7       # Planning time horizon (s) - increased for better lookahead
     dt: 0.1                     # Time step (s)
     planning_frequency: 20.0    # Planning frequency (Hz)
     
