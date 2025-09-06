@@ -18,7 +18,7 @@
 #include <mutex>
 #include <string>
 
-namespace local_planner_pkg {
+namespace lattice_planner_pkg {
 
 struct Point2D {
     double x, y;
@@ -164,4 +164,4 @@ private:
     std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 
-} // namespace local_planner_pkg
+} // namespace lattice_planner_pkg

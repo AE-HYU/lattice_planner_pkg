@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-namespace local_planner_pkg {
+namespace lattice_planner_pkg {
 
 class Utils {
 public:
@@ -60,4 +60,4 @@ private:
     static double calculate_curvature_at_point(const RefPoint& prev, const RefPoint& curr, const RefPoint& next);
 };
 
-} // namespace local_planner_pkg
+} // namespace lattice_planner_pkg

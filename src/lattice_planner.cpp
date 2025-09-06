@@ -1,10 +1,10 @@
-#include "local_planner_pkg/local_planner.hpp"
-#include "local_planner_pkg/utils.hpp"
+#include "lattice_planner_pkg/local_planner.hpp"
+#include "lattice_planner_pkg/utils.hpp"
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <algorithm>
 #include <chrono>
 
-namespace local_planner_pkg {
+namespace lattice_planner_pkg {
 
 LocalPlanner::LocalPlanner() 
     : Node("local_planner"),
@@ -127,7 +127,7 @@ bool LocalPlanner::load_reference_path() {
         if (config_.reference_path_file.find('/') != std::string::npos) {
             resolved_path = config_.reference_path_file;
         } else {
-            std::string pkg_share_dir = ament_index_cpp::get_package_share_directory("local_planner_pkg");
+            std::string pkg_share_dir = ament_index_cpp::get_package_share_directory("lattice_planner_pkg");
             resolved_path = pkg_share_dir + "/config/reference_paths/" + config_.reference_path_file + ".csv";
         }
         
@@ -563,12 +563,12 @@ void LocalPlanner::publish_reference_path() {
     RCLCPP_INFO(this->get_logger(), "Published reference path with %zu points", path_msg.poses.size());
 }
 
-} // namespace local_planner_pkg
+} // namespace lattice_planner_pkg
 
 // Main function
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<local_planner_pkg::LocalPlanner>();
+    auto node = std::make_shared<lattice_planner_pkg::LocalPlanner>();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;

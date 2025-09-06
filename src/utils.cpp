@@ -1,4 +1,4 @@
-#include "local_planner_pkg/utils.hpp"
+#include "lattice_planner_pkg/utils.hpp"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -6,7 +6,7 @@
 #include <cmath>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-namespace local_planner_pkg {
+namespace lattice_planner_pkg {
 
 FrenetPoint Utils::cartesian_to_frenet(const Point2D& cartesian_point, 
                                        const std::vector<RefPoint>& reference_path) {
@@ -805,4 +805,4 @@ double Utils::calculate_curvature_at_point(const RefPoint& prev, const RefPoint&
     return curvature;
 }
 
-} // namespace local_planner_pkg
+} // namespace lattice_planner_pkg

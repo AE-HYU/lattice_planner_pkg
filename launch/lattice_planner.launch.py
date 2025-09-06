@@ -8,7 +8,7 @@ import os
 
 def generate_launch_description():
     # Get package directory
-    pkg_dir = get_package_share_directory('local_planner_pkg')
+    pkg_dir = get_package_share_directory('lattice_planner_pkg')
     
     # Config file path
     config_file = os.path.join(pkg_dir, 'config', 'planner_config.yaml')
@@ -29,7 +29,7 @@ def generate_launch_description():
     
     # Local planner node for simulation mode
     local_planner_sim_node = Node(
-        package='local_planner_pkg',
+        package='lattice_planner_pkg',
         executable='local_planner_node',
         name='local_planner',
         output='screen',
@@ -47,7 +47,7 @@ def generate_launch_description():
     
     # Local planner node for real car mode
     local_planner_real_node = Node(
-        package='local_planner_pkg',
+        package='lattice_planner_pkg',
         executable='local_planner_node',
         name='local_planner',
         output='screen',
