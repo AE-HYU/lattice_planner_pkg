@@ -27,10 +27,10 @@ def generate_launch_description():
     )
     
     
-    # Local planner node for simulation mode
-    local_planner_sim_node = Node(
+    # Lattice planner node for simulation mode
+    lattice_planner_sim_node = Node(
         package='lattice_planner_pkg',
-        executable='local_planner_node',
+        executable='lattice_planner_node',
         name='lattice_planner',
         output='screen',
         parameters=[
@@ -45,10 +45,10 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('sim_mode'))
     )
     
-    # Local planner node for real car mode
-    local_planner_real_node = Node(
+    # Lattice planner node for real car mode
+    lattice_planner_real_node = Node(
         package='lattice_planner_pkg',
-        executable='local_planner_node',
+        executable='lattice_planner_node',
         name='lattice_planner',
         output='screen',
         parameters=[
@@ -65,6 +65,6 @@ def generate_launch_description():
     return LaunchDescription([
         use_sim_time_arg,
         sim_mode_arg,
-        local_planner_sim_node,
-        local_planner_real_node,
+        lattice_planner_sim_node,
+        lattice_planner_real_node,
     ])

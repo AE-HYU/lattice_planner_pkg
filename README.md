@@ -28,8 +28,8 @@ ros2 launch lattice_planner_pkg lattice_planner.launch.py sim_mode:=false use_si
 
 ## Node Information
 
-- **Node Name**: `local_planner`
-- **Executable**: `local_planner_node`
+- **Node Name**: `lattice_planner`
+- **Executable**: `lattice_planner_node`
 - **Config File**: `config/planner_config.yaml`
 
 ## Topics

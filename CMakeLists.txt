@@ -17,13 +17,13 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(planning_custom_msgs REQUIRED)
 find_package(obstacle_detection_pkg REQUIRED)
 
-# Local Planner Node
-add_executable(local_planner_node 
+# Lattice Planner Node
+add_executable(lattice_planner_node 
   src/lattice_planner.cpp
   src/utils.cpp
 )
 
-ament_target_dependencies(local_planner_node
+ament_target_dependencies(lattice_planner_node
   rclcpp 
   nav_msgs 
   geometry_msgs 
@@ -37,14 +37,14 @@ ament_target_dependencies(local_planner_node
   obstacle_detection_pkg
 )
 
-target_include_directories(local_planner_node
+target_include_directories(lattice_planner_node
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # Install targets
 install(TARGETS 
-        local_planner_node
+        lattice_planner_node
         DESTINATION lib/${PROJECT_NAME})
 
 # Install header files
