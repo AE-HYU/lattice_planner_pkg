@@ -1,6 +1,6 @@
 # Local Planner Configuration
 
-local_planner:
+lattice_planner:
   ros__parameters:
     # Reference path configuration
     # Available options in config/reference_paths/:

@@ -31,7 +31,7 @@ def generate_launch_description():
     local_planner_sim_node = Node(
         package='lattice_planner_pkg',
         executable='local_planner_node',
-        name='local_planner',
+        name='lattice_planner',
         output='screen',
         parameters=[
             config_file,
@@ -49,7 +49,7 @@ def generate_launch_description():
     local_planner_real_node = Node(
         package='lattice_planner_pkg',
         executable='local_planner_node',
-        name='local_planner',
+        name='lattice_planner',
         output='screen',
         parameters=[
             config_file,

@@ -1,4 +1,4 @@
-#include "lattice_planner_pkg/local_planner.hpp"
+#include "lattice_planner_pkg/lattice_planner.hpp"
 #include "lattice_planner_pkg/utils.hpp"
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <algorithm>
@@ -7,7 +7,7 @@
 namespace lattice_planner_pkg {
 
 LocalPlanner::LocalPlanner() 
-    : Node("local_planner"),
+    : Node("lattice_planner"),
       vehicle_yaw_(0.0),
       vehicle_velocity_(0.0),
       odom_received_(false),
@@ -139,7 +139,10 @@ bool LocalPlanner::load_reference_path() {
         return false;
     }
     
-    RCLCPP_INFO(this->get_logger(), "Reference path loaded with %zu points", reference_path_.size());
+    RCLCPP_INFO(this->get_logger(), "Reference path loaded with %zu points from file: %s", reference_path_.size(), config_.reference_path_file.c_str());
+    RCLCPP_INFO(this->get_logger(), "First point: (%.3f, %.3f), Last point: (%.3f, %.3f)", 
+                reference_path_.front().x, reference_path_.front().y,
+                reference_path_.back().x, reference_path_.back().y);
     return true;
 }
 
@@ -536,28 +539,6 @@ void LocalPlanner::publish_reference_path() {
         path_msg.poses.push_back(pose_stamped);
     }
     
-    // Add a simple connection from last point to first for loop closure
-    if (path_msg.poses.size() > 1) {
-        const auto& first_pose = path_msg.poses.front();
-        const auto& last_pose = path_msg.poses.back();
-        
-        // Calculate gap distance
-        double dx = first_pose.pose.position.x - last_pose.pose.position.x;
-        double dy = first_pose.pose.position.y - last_pose.pose.position.y;
-        double gap_distance = std::sqrt(dx*dx + dy*dy);
-        
-        // Add a few intermediate points if gap is significant
-        if (gap_distance > 0.05) { // 5cm threshold
-            geometry_msgs::msg::PoseStamped intermediate_pose;
-            intermediate_pose.header = path_msg.header;
-            intermediate_pose.pose.position.x = (last_pose.pose.position.x + first_pose.pose.position.x) / 2.0;
-            intermediate_pose.pose.position.y = (last_pose.pose.position.y + first_pose.pose.position.y) / 2.0;
-            intermediate_pose.pose.position.z = 0.0;
-            intermediate_pose.pose.orientation = last_pose.pose.orientation;
-            
-            path_msg.poses.push_back(intermediate_pose);
-        }
-    }
     
     reference_path_pub_->publish(path_msg);
     RCLCPP_INFO(this->get_logger(), "Published reference path with %zu points", path_msg.poses.size());

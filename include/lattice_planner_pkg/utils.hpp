@@ -1,6 +1,6 @@
 #pragma once
 
-#include "local_planner.hpp"
+#include "lattice_planner.hpp"
 #include <vector>
 #include <string>
 
