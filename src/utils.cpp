@@ -72,7 +72,7 @@ std::vector<RefPoint> Utils::load_reference_path_from_csv(const std::string& fil
     
     std::string line;
     bool first_line = true;
-    int x_col = -1, y_col = -1, vel_col = -1;
+    int x_col = -1, y_col = -1, vel_col = -1, d_right_col = -1, d_left_col = -1;
     
     while (std::getline(file, line)) {
         if (line.empty()) {
@@ -116,6 +116,10 @@ std::vector<RefPoint> Utils::load_reference_path_from_csv(const std::string& fil
                     y_col = i;
                 } else if (header == "vx_mps" || header == "v" || header == "velocity") {
                     vel_col = i;
+                } else if (header == "d_right") {
+                    d_right_col = i;
+                } else if (header == "d_left") {
+                    d_left_col = i;
                 }
             }
             
@@ -123,6 +127,11 @@ std::vector<RefPoint> Utils::load_reference_path_from_csv(const std::string& fil
                 std::cerr << "Could not find x and y columns in CSV header" << std::endl;
                 return path;
             }
+            
+            // Debug: Print column indices
+            std::cout << "CSV columns found - x: " << x_col << ", y: " << y_col 
+                     << ", vel: " << vel_col << ", d_right: " << d_right_col 
+                     << ", d_left: " << d_left_col << std::endl;
             
             first_line = false;
             continue;
@@ -136,6 +145,19 @@ std::vector<RefPoint> Utils::load_reference_path_from_csv(const std::string& fil
                 point.y = std::stod(row[y_col]);
                 point.velocity = (vel_col >= 0 && vel_col < row.size()) ? 
                                 std::stod(row[vel_col]) : 5.0;  // Default velocity
+                point.width_right = (d_right_col >= 0 && d_right_col < row.size()) ? 
+                                   std::stod(row[d_right_col]) : 2.0;  // Default width
+                point.width_left = (d_left_col >= 0 && d_left_col < row.size()) ? 
+                                  std::stod(row[d_left_col]) : 2.0;   // Default width
+                
+                // Debug: Print first few parsed values
+                static int debug_count = 0;
+                if (debug_count < 3) {
+                    std::cout << "Parsed point " << debug_count << ": x=" << point.x 
+                             << ", y=" << point.y << ", d_right=" << point.width_right 
+                             << ", d_left=" << point.width_left << std::endl;
+                    debug_count++;
+                }
             } catch (const std::exception& e) {
                 std::cerr << "Error parsing CSV line: " << line << std::endl;
                 continue;
@@ -304,7 +326,11 @@ void Utils::close_raceline_loop(std::vector<RefPoint>& path) {
 
 RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, double s) {
     if (path.empty()) {
-        return RefPoint();
+        RefPoint default_point;
+        // Set some debug-able values to identify this case
+        default_point.width_left = 999.0;
+        default_point.width_right = 999.0;
+        return default_point;
     }
     
     double total_length = path.back().s;
@@ -324,7 +350,7 @@ RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, d
     }
     
     if (s <= path[0].s) {
-        return path[0];
+        return path[0];  // This will return the actual loaded data including width_left and width_right
     }
     
     if (s >= path.back().s) {
@@ -356,7 +382,7 @@ RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, d
             return interpolated;
         }
         
-        return path.back();
+        return path.back();  // This will return the actual loaded data including width_left and width_right
     }
     
     // Find surrounding points
@@ -385,6 +411,8 @@ RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, d
     interpolated.velocity = p1.velocity + ratio * (p2.velocity - p1.velocity);
     interpolated.heading = p1.heading + ratio * normalize_angle(p2.heading - p1.heading);
     interpolated.curvature = p1.curvature + ratio * (p2.curvature - p1.curvature);
+    interpolated.width_left = p1.width_left + ratio * (p2.width_left - p1.width_left);
+    interpolated.width_right = p1.width_right + ratio * (p2.width_right - p1.width_right);
     
     return interpolated;
 }
@@ -731,10 +759,23 @@ crazy_planner_msgs::msg::WaypointArray Utils::convert_to_waypoint_array(const Pa
             RefPoint ref_point = interpolate_reference_point(reference_path, frenet_point.s);
             waypoint.d_right = ref_point.width_right;
             waypoint.d_left = ref_point.width_left;
+            
+            // Debug output to verify values are being used
+            if (i == 0) {  // Print for first waypoint only to avoid spam
+                std::cout << "DEBUG: Using reference path boundaries - d_right: " 
+                         << waypoint.d_right << ", d_left: " << waypoint.d_left 
+                         << " (from interpolated ref_point: " << ref_point.width_right 
+                         << ", " << ref_point.width_left << ")" << std::endl;
+            }
         } else {
             // Fallback to varying default values
             waypoint.d_right = 1.8 + 0.2 * std::sin(waypoint.s_m * 0.1);
             waypoint.d_left = 1.8 + 0.2 * std::cos(waypoint.s_m * 0.1);
+            
+            // Debug output to show fallback is being used
+            if (i == 0) {
+                std::cout << "DEBUG: Reference path empty, using fallback boundaries" << std::endl;
+            }
         }
         
         waypoint_array.waypoints.push_back(waypoint);
