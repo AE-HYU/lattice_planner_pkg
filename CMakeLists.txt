@@ -14,7 +14,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(planning_custom_msgs REQUIRED)
+find_package(crazy_planner_msgs REQUIRED)
 find_package(obstacle_detection_pkg REQUIRED)
 
 # Lattice Planner Node
@@ -33,7 +33,7 @@ ament_target_dependencies(lattice_planner_node
   tf2
   tf2_ros
   tf2_geometry_msgs
-  planning_custom_msgs
+  crazy_planner_msgs
   obstacle_detection_pkg
 )
 

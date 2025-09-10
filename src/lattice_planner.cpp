@@ -81,8 +81,8 @@ bool LocalPlanner::initialize() {
     }
     
     // Initialize publishers - PathWithVelocity, visualization, and reference path
-    path_with_velocity_pub_ = this->create_publisher<planning_custom_msgs::msg::PathWithVelocity>(
-        "/planned_path_with_velocity", 10);
+    waypoint_array_pub_ = this->create_publisher<crazy_planner_msgs::msg::WaypointArray>(
+        "/planned_waypoints", 10);
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/path_candidates", 10);
     reference_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/reference_path", 10);
     
@@ -499,11 +499,11 @@ void LocalPlanner::publish_selected_path(const PathCandidate& path) {
         return;
     }
     
-    // Publish only PathWithVelocity - contains all necessary information
-    auto velocity_path = Utils::convert_to_path_with_velocity(path);
-    velocity_path.header.stamp = this->get_clock()->now();
-    velocity_path.header.frame_id = "map";
-    path_with_velocity_pub_->publish(velocity_path);
+    // Publish WaypointArray - contains all necessary information
+    auto waypoint_array = Utils::convert_to_waypoint_array(path, reference_path_);
+    waypoint_array.header.stamp = this->get_clock()->now();
+    waypoint_array.header.frame_id = "map";
+    waypoint_array_pub_->publish(waypoint_array);
 }
 
 void LocalPlanner::publish_visualization(const std::vector<PathCandidate>& candidates, 

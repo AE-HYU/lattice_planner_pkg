@@ -685,32 +685,62 @@ double Utils::calculate_path_cost(const PathCandidate& path,
     return cost;
 }
 
-planning_custom_msgs::msg::PathWithVelocity Utils::convert_to_path_with_velocity(const PathCandidate& path) {
-    planning_custom_msgs::msg::PathWithVelocity velocity_path;
+crazy_planner_msgs::msg::WaypointArray Utils::convert_to_waypoint_array(const PathCandidate& path, const std::vector<RefPoint>& reference_path) {
+    crazy_planner_msgs::msg::WaypointArray waypoint_array;
     
-    for (const auto& point : path.points) {
-        planning_custom_msgs::msg::PathPoint path_point;
-        path_point.x = point.x;
-        path_point.y = point.y;
-        path_point.yaw = point.yaw;
-        path_point.velocity = point.velocity;
-        path_point.curvature = point.curvature;
-        path_point.time_from_start = point.time;
+    for (size_t i = 0; i < path.points.size(); ++i) {
+        const auto& point = path.points[i];
         
-        velocity_path.points.push_back(path_point);
+        crazy_planner_msgs::msg::Waypoint waypoint;
+        waypoint.id = static_cast<int32_t>(i);
+        
+        // Set map coordinates
+        waypoint.x_m = point.x;
+        waypoint.y_m = point.y;
+        waypoint.psi_rad = point.yaw;
+        waypoint.vx_mps = point.velocity;
+        waypoint.kappa_radpm = point.curvature;
+        
+        // Calculate acceleration (simple finite difference)
+        if (i > 0) {
+            double dt = 0.1; // Approximate time step
+            double dv = point.velocity - path.points[i-1].velocity;
+            waypoint.ax_mps2 = dv / dt;
+        } else {
+            waypoint.ax_mps2 = 0.0;
+        }
+        
+        // Convert to Frenet coordinates using actual path progression
+        // Calculate cumulative arc length
+        if (i == 0) {
+            waypoint.s_m = 0.0;
+        } else {
+            double dx = point.x - path.points[i-1].x;
+            double dy = point.y - path.points[i-1].y;
+            double ds = std::sqrt(dx*dx + dy*dy);
+            waypoint.s_m = waypoint_array.waypoints[i-1].s_m + ds;
+        }
+        
+        // Lateral offset from path generation (more accurate than fixed value)
+        waypoint.d_m = path.lateral_offset;
+        
+        // Get track bounds from reference path if available
+        if (!reference_path.empty()) {
+            // Find closest reference point and interpolate track boundaries
+            FrenetPoint frenet_point = cartesian_to_frenet(Point2D(point.x, point.y), reference_path);
+            RefPoint ref_point = interpolate_reference_point(reference_path, frenet_point.s);
+            waypoint.d_right = ref_point.width_right;
+            waypoint.d_left = ref_point.width_left;
+        } else {
+            // Fallback to varying default values
+            waypoint.d_right = 1.8 + 0.2 * std::sin(waypoint.s_m * 0.1);
+            waypoint.d_left = 1.8 + 0.2 * std::cos(waypoint.s_m * 0.1);
+        }
+        
+        waypoint_array.waypoints.push_back(waypoint);
     }
     
-    // Set maximum velocity
-    double max_vel = 0.0;
-    for (const auto& point : path.points) {
-        max_vel = std::max(max_vel, point.velocity);
-    }
-    velocity_path.max_velocity = max_vel;
-    
-    // Set path ID based on lateral offset
-    velocity_path.path_id = static_cast<uint32_t>(std::hash<double>{}(path.lateral_offset) % 10000);
-    
-    return velocity_path;
+    return waypoint_array;
 }
 
 visualization_msgs::msg::MarkerArray Utils::create_path_markers(
