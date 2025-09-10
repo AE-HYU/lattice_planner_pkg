@@ -128,10 +128,6 @@ std::vector<RefPoint> Utils::load_reference_path_from_csv(const std::string& fil
                 return path;
             }
             
-            // Debug: Print column indices
-            std::cout << "CSV columns found - x: " << x_col << ", y: " << y_col 
-                     << ", vel: " << vel_col << ", d_right: " << d_right_col 
-                     << ", d_left: " << d_left_col << std::endl;
             
             first_line = false;
             continue;
@@ -150,14 +146,6 @@ std::vector<RefPoint> Utils::load_reference_path_from_csv(const std::string& fil
                 point.width_left = (d_left_col >= 0 && d_left_col < row.size()) ? 
                                   std::stod(row[d_left_col]) : 2.0;   // Default width
                 
-                // Debug: Print first few parsed values
-                static int debug_count = 0;
-                if (debug_count < 3) {
-                    std::cout << "Parsed point " << debug_count << ": x=" << point.x 
-                             << ", y=" << point.y << ", d_right=" << point.width_right 
-                             << ", d_left=" << point.width_left << std::endl;
-                    debug_count++;
-                }
             } catch (const std::exception& e) {
                 std::cerr << "Error parsing CSV line: " << line << std::endl;
                 continue;
@@ -315,8 +303,6 @@ void Utils::close_raceline_loop(std::vector<RefPoint>& path) {
         // Store total track length for wraparound calculations
         double total_track_length = new_last.s + final_segment;
         
-        std::cout << "Total track length: " << total_track_length << " meters" << std::endl;
-        
         // Update heading for the last few points to point toward start
         if (path.size() >= 2) {
             new_last.heading = std::atan2(first_point.y - new_last.y, first_point.x - new_last.x);
@@ -326,11 +312,7 @@ void Utils::close_raceline_loop(std::vector<RefPoint>& path) {
 
 RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, double s) {
     if (path.empty()) {
-        RefPoint default_point;
-        // Set some debug-able values to identify this case
-        default_point.width_left = 999.0;
-        default_point.width_right = 999.0;
-        return default_point;
+        return RefPoint();
     }
     
     double total_length = path.back().s;
@@ -350,7 +332,7 @@ RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, d
     }
     
     if (s <= path[0].s) {
-        return path[0];  // This will return the actual loaded data including width_left and width_right
+        return path[0];
     }
     
     if (s >= path.back().s) {
@@ -382,7 +364,7 @@ RefPoint Utils::interpolate_reference_point(const std::vector<RefPoint>& path, d
             return interpolated;
         }
         
-        return path.back();  // This will return the actual loaded data including width_left and width_right
+        return path.back();
     }
     
     // Find surrounding points
@@ -760,22 +742,11 @@ crazy_planner_msgs::msg::WaypointArray Utils::convert_to_waypoint_array(const Pa
             waypoint.d_right = ref_point.width_right;
             waypoint.d_left = ref_point.width_left;
             
-            // Debug output to verify values are being used
-            if (i == 0) {  // Print for first waypoint only to avoid spam
-                std::cout << "DEBUG: Using reference path boundaries - d_right: " 
-                         << waypoint.d_right << ", d_left: " << waypoint.d_left 
-                         << " (from interpolated ref_point: " << ref_point.width_right 
-                         << ", " << ref_point.width_left << ")" << std::endl;
-            }
         } else {
             // Fallback to varying default values
             waypoint.d_right = 1.8 + 0.2 * std::sin(waypoint.s_m * 0.1);
             waypoint.d_left = 1.8 + 0.2 * std::cos(waypoint.s_m * 0.1);
             
-            // Debug output to show fallback is being used
-            if (i == 0) {
-                std::cout << "DEBUG: Reference path empty, using fallback boundaries" << std::endl;
-            }
         }
         
         waypoint_array.waypoints.push_back(waypoint);
