@@ -16,8 +16,8 @@ lattice_planner:
     
     # Planning parameters
     lateral_step: 0.35           # Lateral sampling step (m)
-    max_lateral_offset: 1.2     # Maximum lateral offset (m)
-    planning_horizon: 0.5       # Planning time horizon (s) - increased for better lookahead
+    max_lateral_offset: 2.5     # Maximum lateral offset (m)
+    planning_horizon: 0.45       # Planning time horizon (s) - increased for better lookahead
     dt: 0.1                     # Time step (s)
     planning_frequency: 20.0    # Planning frequency (Hz)
     
@@ -27,14 +27,14 @@ lattice_planner:
     curvature_weight: 0.7        # Weight for curvature continuity in cost function
     
     # Vehicle geometry for front-wheel planning
-    wheelbase: 0.4              # Distance from rear to front axle (m)
+    wheelbase: 0.324              # Distance from rear to front axle (m)
     front_lookahead: 0.1         # Additional lookahead beyond front axle (m)
     
     # Vehicle parameters
     max_velocity: 8.0           # Maximum velocity (m/s)
-    max_curvature: 1.0          # Maximum path curvature (1/m)
-    vehicle_width: 0.45         # Vehicle width for collision checking (m)
-    safety_margin: 0.3          # Safety margin from track boundaries (m) - increased from 0.2
+    max_curvature: 0.892          # Maximum path curvature (1/m)
+    vehicle_width: 0.3         # Vehicle width for collision checking (m)
+    safety_margin: 0.1          # Safety margin from track boundaries (m) - increased from 0.2
     
     # Progressive lattice expansion parameters
     lattice_initial_width: 0.1       # Initial lateral offset near rear axle (m) - small for sparse near rear
