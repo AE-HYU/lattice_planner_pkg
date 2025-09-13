@@ -81,7 +81,7 @@ bool LocalPlanner::initialize() {
     }
     
     // Initialize publishers - PathWithVelocity, visualization, and reference path
-    waypoint_array_pub_ = this->create_publisher<crazy_planner_msgs::msg::WaypointArray>(
+    waypoint_array_pub_ = this->create_publisher<ae_hyu_msgs::msg::WpntArray>(
         "/planned_waypoints", 10);
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/path_candidates", 10);
     reference_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/reference_path", 10);

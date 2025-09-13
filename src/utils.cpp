@@ -695,13 +695,13 @@ double Utils::calculate_path_cost(const PathCandidate& path,
     return cost;
 }
 
-crazy_planner_msgs::msg::WaypointArray Utils::convert_to_waypoint_array(const PathCandidate& path, const std::vector<RefPoint>& reference_path) {
-    crazy_planner_msgs::msg::WaypointArray waypoint_array;
+ae_hyu_msgs::msg::WpntArray Utils::convert_to_waypoint_array(const PathCandidate& path, const std::vector<RefPoint>& reference_path) {
+    ae_hyu_msgs::msg::WpntArray waypoint_array;
     
     for (size_t i = 0; i < path.points.size(); ++i) {
         const auto& point = path.points[i];
         
-        crazy_planner_msgs::msg::Waypoint waypoint;
+        ae_hyu_msgs::msg::Wpnt waypoint;
         waypoint.id = static_cast<int32_t>(i);
         
         // Set map coordinates
@@ -728,7 +728,7 @@ crazy_planner_msgs::msg::WaypointArray Utils::convert_to_waypoint_array(const Pa
             double dx = point.x - path.points[i-1].x;
             double dy = point.y - path.points[i-1].y;
             double ds = std::sqrt(dx*dx + dy*dy);
-            waypoint.s_m = waypoint_array.waypoints[i-1].s_m + ds;
+            waypoint.s_m = waypoint_array.wpnts[i-1].s_m + ds;
         }
         
         // Lateral offset from path generation (more accurate than fixed value)
@@ -749,7 +749,7 @@ crazy_planner_msgs::msg::WaypointArray Utils::convert_to_waypoint_array(const Pa
             
         }
         
-        waypoint_array.waypoints.push_back(waypoint);
+        waypoint_array.wpnts.push_back(waypoint);
     }
     
     return waypoint_array;

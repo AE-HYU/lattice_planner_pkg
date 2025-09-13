@@ -52,7 +52,7 @@ public:
                                      const PlannerConfig& config);
     
     // Conversion utilities
-    static crazy_planner_msgs::msg::WaypointArray convert_to_waypoint_array(const PathCandidate& path, const std::vector<RefPoint>& reference_path = std::vector<RefPoint>());
+    static ae_hyu_msgs::msg::WpntArray convert_to_waypoint_array(const PathCandidate& path, const std::vector<RefPoint>& reference_path = std::vector<RefPoint>());
     static visualization_msgs::msg::MarkerArray create_path_markers(
         const std::vector<PathCandidate>& candidates, const PathCandidate& selected);
 

@@ -7,7 +7,7 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-#include <crazy_planner_msgs/msg/waypoint_array.hpp>
+#include <ae_hyu_msgs/msg/wpnt_array.hpp>
 #include <obstacle_detection_pkg/msg/obstacle_array.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
@@ -149,7 +149,7 @@ private:
     std::mutex obstacles_mutex_;
     
     // ROS components
-    rclcpp::Publisher<crazy_planner_msgs::msg::WaypointArray>::SharedPtr waypoint_array_pub_;
+    rclcpp::Publisher<ae_hyu_msgs::msg::WpntArray>::SharedPtr waypoint_array_pub_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr reference_path_pub_;
     
