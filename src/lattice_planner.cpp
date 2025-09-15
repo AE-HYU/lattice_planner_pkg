@@ -82,7 +82,11 @@ bool LocalPlanner::initialize() {
     
     // Initialize publishers - PathWithVelocity, visualization, and reference path
     waypoint_array_pub_ = this->create_publisher<ae_hyu_msgs::msg::WpntArray>(
-        "/planned_waypoints", 10);
+        "/local_waypoints", 10);
+    global_waypoint_array_pub_ = this->create_publisher<ae_hyu_msgs::msg::WpntArray>(
+        "/global_waypoints", 10);
+    frenet_odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(
+        "/car_state/frenet/odom", 10);
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/path_candidates", 10);
     reference_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/reference_path", 10);
     
@@ -164,6 +168,7 @@ void LocalPlanner::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     double vy = msg->twist.twist.linear.y;
     vehicle_velocity_ = std::sqrt(vx*vx + vy*vy);
     
+    current_odom_ = *msg;  // Store full odometry for frenet conversion
     odom_received_ = true;
 }
 
@@ -209,6 +214,10 @@ void LocalPlanner::planning_timer_callback() {
         publish_reference_path();
         last_ref_path_publish = now;
     }
+    
+    // Publish global waypoints and frenet odometry (similar to planner_pkg)
+    publish_global_waypoints();
+    publish_frenet_odometry();
     
     plan_paths();
 }
@@ -543,6 +552,91 @@ void LocalPlanner::publish_reference_path() {
     reference_path_pub_->publish(path_msg);
     RCLCPP_INFO(this->get_logger(), "Published reference path with %zu points", path_msg.poses.size());
 }
+
+void LocalPlanner::publish_global_waypoints() {
+    if (reference_path_.empty()) {
+        return;
+    }
+    
+    ae_hyu_msgs::msg::WpntArray waypoint_array;
+    waypoint_array.header.stamp = this->now();
+    waypoint_array.header.frame_id = "map";
+    
+    for (size_t i = 0; i < reference_path_.size(); ++i) {
+        const auto& ref_point = reference_path_[i];
+        
+        ae_hyu_msgs::msg::Wpnt waypoint;
+        waypoint.id = static_cast<int32_t>(i);
+        waypoint.s_m = ref_point.s;
+        waypoint.d_m = 0.0;
+        waypoint.x_m = ref_point.x;
+        waypoint.y_m = ref_point.y;
+        waypoint.d_right = ref_point.width_right;
+        waypoint.d_left = ref_point.width_left;
+        waypoint.psi_rad = ref_point.heading;
+        waypoint.kappa_radpm = ref_point.curvature;
+        waypoint.vx_mps = ref_point.velocity;
+        waypoint.ax_mps2 = 0.0;  // Not available in lattice planner
+        
+        waypoint_array.wpnts.push_back(waypoint);
+    }
+    
+    global_waypoint_array_pub_->publish(waypoint_array);
+}
+
+void LocalPlanner::publish_frenet_odometry() {
+    if (!odom_received_ || reference_path_.empty()) {
+        return;
+    }
+    
+    std::lock_guard<std::mutex> lock(vehicle_state_mutex_);
+    
+    // Use optimized Utils function for frenet conversion
+    FrenetPoint frenet_point = Utils::cartesian_to_frenet_optimized(
+        Point2D(vehicle_position_.x, vehicle_position_.y), reference_path_, last_closest_index_);
+    
+    // Convert velocities to frenet coordinates using Utils
+    double vx = current_odom_.twist.twist.linear.x;
+    double vy = current_odom_.twist.twist.linear.y;
+    auto frenet_vel = Utils::cartesian_velocity_to_frenet(vx, vy, vehicle_yaw_, reference_path_, last_closest_index_);
+    double vs = frenet_vel.first;   // longitudinal velocity
+    double vd = frenet_vel.second;  // lateral velocity
+    
+    // Create frenet odometry message
+    nav_msgs::msg::Odometry frenet_odom;
+    frenet_odom.header.stamp = current_odom_.header.stamp;
+    frenet_odom.header.frame_id = "frenet";
+    frenet_odom.child_frame_id = "base_link_frenet";
+    
+    // Pose: s, d coordinates
+    frenet_odom.pose.pose.position.x = frenet_point.s;  // s coordinate
+    frenet_odom.pose.pose.position.y = frenet_point.d;  // d coordinate
+    frenet_odom.pose.pose.position.z = 0.0;
+    
+    // Orientation (identity quaternion for frenet frame)
+    frenet_odom.pose.pose.orientation.x = 0.0;
+    frenet_odom.pose.pose.orientation.y = 0.0;
+    frenet_odom.pose.pose.orientation.z = 0.0;
+    frenet_odom.pose.pose.orientation.w = 1.0;
+    
+    // Twist: vs, vd velocities
+    frenet_odom.twist.twist.linear.x = vs;  // longitudinal velocity
+    frenet_odom.twist.twist.linear.y = vd;  // lateral velocity
+    frenet_odom.twist.twist.linear.z = 0.0;
+    frenet_odom.twist.twist.angular.x = 0.0;
+    frenet_odom.twist.twist.angular.y = 0.0;
+    frenet_odom.twist.twist.angular.z = 0.0;
+    
+    // Covariances (set to zero)
+    for (int i = 0; i < 36; ++i) {
+        frenet_odom.pose.covariance[i] = 0.0;
+        frenet_odom.twist.covariance[i] = 0.0;
+    }
+    
+    frenet_odom_pub_->publish(frenet_odom);
+}
+
+// Removed: Duplicate frenet conversion functions now handled by Utils class
 
 } // namespace lattice_planner_pkg
 

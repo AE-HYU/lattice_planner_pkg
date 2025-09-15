@@ -4,7 +4,6 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
-#include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <ae_hyu_msgs/msg/wpnt_array.hpp>
@@ -17,6 +16,8 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <limits>
+#include <cmath>
 
 namespace lattice_planner_pkg {
 
@@ -116,11 +117,15 @@ private:
     bool check_track_boundaries(const PathCandidate& path);
     bool check_collision(const CartesianPoint& point, const std::vector<Obstacle>& obstacles);
     
+    // Note: Frenet coordinate conversion now handled by Utils class
+    
     
     // Publishing
     void publish_selected_path(const PathCandidate& path);
     void publish_visualization(const std::vector<PathCandidate>& candidates, const PathCandidate& selected);
     void publish_reference_path();
+    void publish_global_waypoints();
+    void publish_frenet_odometry();
     
     // Callbacks
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
@@ -136,7 +141,11 @@ private:
     Point2D vehicle_position_;
     double vehicle_yaw_, vehicle_velocity_;
     bool odom_received_;
+    nav_msgs::msg::Odometry current_odom_;
     std::mutex vehicle_state_mutex_;
+    
+    // Frenet coordinate conversion tracking (similar to planner_pkg)
+    int last_closest_index_ = 0;
     
     // Path history for smooth transitions
     PathCandidate last_selected_path_;
@@ -150,6 +159,8 @@ private:
     
     // ROS components
     rclcpp::Publisher<ae_hyu_msgs::msg::WpntArray>::SharedPtr waypoint_array_pub_;
+    rclcpp::Publisher<ae_hyu_msgs::msg::WpntArray>::SharedPtr global_waypoint_array_pub_;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr frenet_odom_pub_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr reference_path_pub_;
     

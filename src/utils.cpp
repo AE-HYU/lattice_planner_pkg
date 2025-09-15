@@ -38,6 +38,91 @@ FrenetPoint Utils::cartesian_to_frenet(const Point2D& cartesian_point,
     return frenet_point;
 }
 
+// Optimized version based on planner_pkg implementation
+FrenetPoint Utils::cartesian_to_frenet_optimized(const Point2D& cartesian_point, 
+                                                 const std::vector<RefPoint>& reference_path, 
+                                                 int& last_closest_index) {
+    FrenetPoint frenet;
+    frenet.s = 0.0;
+    frenet.d = 0.0;
+    
+    if (reference_path.empty()) {
+        return frenet;
+    }
+    
+    // Find closest waypoint with optimized search
+    int closest_idx = find_closest_reference_index_optimized(cartesian_point, reference_path, last_closest_index);
+    if (closest_idx < 0) {
+        return frenet;
+    }
+    
+    const RefPoint& ref_point = reference_path[closest_idx];
+    
+    // Vector from reference point to target point  
+    double dx = cartesian_point.x - ref_point.x;
+    double dy = cartesian_point.y - ref_point.y;
+    
+    // Project onto track tangent to get s offset
+    double cos_psi = std::cos(ref_point.heading);
+    double sin_psi = std::sin(ref_point.heading);
+    double ds = dx * cos_psi + dy * sin_psi;
+    
+    // Project onto track normal to get d offset (positive = left side)
+    double dd = -dx * sin_psi + dy * cos_psi;
+    
+    // Final Frenet coordinates with s offset
+    frenet.s = ref_point.s + ds;
+    frenet.d = dd;
+    
+    // Handle wrap-around for closed circuits
+    if (!reference_path.empty()) {
+        double max_s = reference_path.back().s;
+        if (frenet.s > max_s * 0.9) {
+            // Check if closer to start
+            double first_x = reference_path[0].x;
+            double first_y = reference_path[0].y;
+            double dist_to_start = std::sqrt((cartesian_point.x - first_x) * (cartesian_point.x - first_x) + 
+                                           (cartesian_point.y - first_y) * (cartesian_point.y - first_y));
+            
+            double current_x = reference_path[closest_idx].x;
+            double current_y = reference_path[closest_idx].y;
+            double dist_to_current = std::sqrt((cartesian_point.x - current_x) * (cartesian_point.x - current_x) + 
+                                             (cartesian_point.y - current_y) * (cartesian_point.y - current_y));
+            
+            if (dist_to_start < dist_to_current * 1.5 && closest_idx > reference_path.size() * 0.8) {
+                frenet.s = frenet.s - max_s;  // Wrap to beginning
+            }
+        }
+        
+        // Ensure s is always positive
+        if (frenet.s < 0.0) {
+            frenet.s = 0.0;
+        }
+    }
+    
+    return frenet;
+}
+
+std::pair<double, double> Utils::cartesian_velocity_to_frenet(double vx, double vy, double vehicle_theta,
+                                                             const std::vector<RefPoint>& reference_path,
+                                                             int closest_idx) {
+    if (reference_path.empty() || closest_idx < 0 || closest_idx >= (int)reference_path.size()) {
+        return {0.0, 0.0};
+    }
+    
+    double track_psi = reference_path[closest_idx].heading;
+    
+    // Convert base_link velocity to map frame
+    double vx_map = vx * std::cos(vehicle_theta) - vy * std::sin(vehicle_theta);
+    double vy_map = vx * std::sin(vehicle_theta) + vy * std::cos(vehicle_theta);
+    
+    // Convert to frenet frame
+    double vs = vx_map * std::cos(track_psi) + vy_map * std::sin(track_psi);    // longitudinal
+    double vd = -vx_map * std::sin(track_psi) + vy_map * std::cos(track_psi);   // lateral
+    
+    return {vs, vd};
+}
+
 CartesianPoint Utils::frenet_to_cartesian(const FrenetPoint& frenet_point, 
                                           const std::vector<RefPoint>& reference_path) {
     if (reference_path.empty()) {
@@ -428,6 +513,55 @@ int Utils::find_closest_reference_index(const Point2D& point, const std::vector<
     }
     
     return closest_idx;
+}
+
+// Optimized version with range search and wrap-around handling
+int Utils::find_closest_reference_index_optimized(const Point2D& point, 
+                                                  const std::vector<RefPoint>& reference_path,
+                                                  int& last_closest_index) {
+    if (reference_path.empty()) return -1;
+    
+    int search_range = 20;
+    int trajectory_size = (int)reference_path.size();
+    
+    // Check if we need wrap-around search
+    bool check_wrap_around = (last_closest_index > trajectory_size * 0.8) || 
+                            (last_closest_index < trajectory_size * 0.2);
+    
+    double min_distance_sq = std::numeric_limits<double>::max();
+    int closest_index = last_closest_index;
+    
+    if (check_wrap_around) {
+        // Search entire trajectory when near boundaries
+        for (int i = 0; i < trajectory_size; ++i) {
+            double dx = point.x - reference_path[i].x;
+            double dy = point.y - reference_path[i].y;
+            double distance_sq = dx * dx + dy * dy;
+            
+            if (distance_sq < min_distance_sq) {
+                min_distance_sq = distance_sq;
+                closest_index = i;
+            }
+        }
+    } else {
+        // Normal local search
+        int start_idx = std::max(0, last_closest_index - search_range);
+        int end_idx = std::min(trajectory_size - 1, last_closest_index + search_range);
+        
+        for (int i = start_idx; i <= end_idx; ++i) {
+            double dx = point.x - reference_path[i].x;
+            double dy = point.y - reference_path[i].y;
+            double distance_sq = dx * dx + dy * dy;
+            
+            if (distance_sq < min_distance_sq) {
+                min_distance_sq = distance_sq;
+                closest_index = i;
+            }
+        }
+    }
+    
+    last_closest_index = closest_index;
+    return closest_index;
 }
 
 std::vector<double> Utils::generate_biased_offsets(

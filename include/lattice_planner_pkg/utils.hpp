@@ -11,6 +11,12 @@ public:
     // Coordinate transformations
     static FrenetPoint cartesian_to_frenet(const Point2D& cartesian_point, 
                                            const std::vector<RefPoint>& reference_path);
+    static FrenetPoint cartesian_to_frenet_optimized(const Point2D& cartesian_point, 
+                                                     const std::vector<RefPoint>& reference_path, 
+                                                     int& last_closest_index);
+    static std::pair<double, double> cartesian_velocity_to_frenet(double vx, double vy, double vehicle_theta,
+                                                                 const std::vector<RefPoint>& reference_path,
+                                                                 int closest_idx);
     static CartesianPoint frenet_to_cartesian(const FrenetPoint& frenet_point, 
                                               const std::vector<RefPoint>& reference_path);
     
@@ -28,6 +34,9 @@ public:
     static double normalize_angle(double angle);
     static int find_closest_reference_index(const Point2D& point, 
                                            const std::vector<RefPoint>& reference_path);
+    static int find_closest_reference_index_optimized(const Point2D& point, 
+                                                     const std::vector<RefPoint>& reference_path,
+                                                     int& last_closest_index);
     
     // Path generation
     static std::vector<CartesianPoint> generate_lattice_path(
