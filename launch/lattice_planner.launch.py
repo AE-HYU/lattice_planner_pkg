@@ -1,10 +1,19 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.conditions import IfCondition, UnlessCondition
 from ament_index_python.packages import get_package_share_directory
 import os
+
+def get_odom_topic(odom_mode):
+    """Convert shorthand odom_mode to full topic name"""
+    odom_mappings = {
+        'pf': '/pf/pose/odom',
+        'ego': '/ego_racecar/odom',
+        'sim': '/ego_racecar/odom'
+    }
+    return odom_mappings.get(odom_mode, odom_mode)
 
 def generate_launch_description():
     # Get package directory
@@ -29,7 +38,7 @@ def generate_launch_description():
     odom_mode_arg = DeclareLaunchArgument(
         'odom_mode',
         default_value='/ego_racecar/odom',
-        description='Odometry topic to use in sim mode'
+        description='Odometry topic to use in sim mode. Supports shortcuts: pf=/pf/pose/odom, ego=/ego_racecar/odom, sim=/ego_racecar/odom'
     )
     
     race_line_arg = DeclareLaunchArgument(
@@ -51,7 +60,11 @@ def generate_launch_description():
              'reference_path_file': LaunchConfiguration('race_line')}
         ],
         remappings=[
-            ('/odom', LaunchConfiguration('odom_mode')),
+            ('/odom', PythonExpression([
+                "'", LaunchConfiguration('odom_mode'), "' if '", LaunchConfiguration('odom_mode'), "'.startswith('/') else ",
+                "{'pf': '/pf/pose/odom', 'ego': '/ego_racecar/odom', 'sim': '/ego_racecar/odom'}.get('", 
+                LaunchConfiguration('odom_mode'), "', '", LaunchConfiguration('odom_mode'), "')"
+            ])),
             ('/map', '/updated_map'),
         ],
         condition=IfCondition(LaunchConfiguration('sim_mode'))
