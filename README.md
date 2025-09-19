@@ -14,6 +14,12 @@ ros2 launch lattice_planner_pkg lattice_planner.launch.py
 
 # Simulation
 ros2 launch lattice_planner_pkg lattice_planner.launch.py sim_mode:=true
+
+# Custom raceline
+ros2 launch lattice_planner_pkg lattice_planner.launch.py race_line:=Spielberg_global
+
+# Simulation with custom raceline and odometry topic
+ros2 launch lattice_planner_pkg lattice_planner.launch.py sim_mode:=true race_line:=icra_2 odom_mode:=/custom/odom
 ```
 
 ## Launch Parameters
@@ -22,6 +28,8 @@ ros2 launch lattice_planner_pkg lattice_planner.launch.py sim_mode:=true
 |-----------|---------|-------------|
 | `sim_mode` | `false` | Use simulation topics if true |
 | `use_sim_time` | `false` | Use simulation time |
+| `race_line` | `fmap_5.0_0.3_7.0_7.0` | Raceline CSV filename (without extension) |
+| `odom_mode` | `/ego_racecar/odom` | Odometry topic for sim mode |
 
 ## Topics
 
@@ -31,7 +39,7 @@ ros2 launch lattice_planner_pkg lattice_planner.launch.py sim_mode:=true
 - **Frenet**: `/car_state/frenet/odom` - Vehicle state in Frenet coordinates
 
 ### Simulation Mode
-- **Input**: `/ego_racecar/odom` - Simulation pose data
+- **Input**: Configurable via `odom_mode` (default: `/ego_racecar/odom`)
 - **Output**: `/local_waypoints`, `/global_waypoints` - Planned paths
 - **Frenet**: `/car_state/frenet/odom` - Vehicle state in Frenet coordinates
 
@@ -63,10 +71,12 @@ Place CSV files in `config/reference_paths/` with format:
 x_m, y_m, s_m, psi_rad, kappa_radpm, vx_mps, width_left, width_right
 ```
 
-Available paths:
-- `sibal1.csv` (default racing circuit)
-- `Spielberg_map.csv` (F1 Austria GP)
-- `levine.csv` (multi-floor building)
+Available paths (use with `race_line:=<filename>`):
+- `fmap_5.0_0.3_7.0_7.0` (default)
+- `Spielberg_global` (F1 Austria GP)
+- `icra_2`, `first_map_raceline`, `slamtoolbox_raceline`
+- `sibal1_*ms` (various speed profiles)
+- And more in `config/reference_paths/`
 
 ## Algorithm
 

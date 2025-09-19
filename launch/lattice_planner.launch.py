@@ -23,7 +23,19 @@ def generate_launch_description():
     sim_mode_arg = DeclareLaunchArgument(
         'sim_mode',
         default_value='false',
-        description='Use simulation mode (ego_racecar/odom) if true, real car mode (/pf/pose/odom) if false'
+        description='Use simulation mode if true, real car mode if false'
+    )
+    
+    odom_mode_arg = DeclareLaunchArgument(
+        'odom_mode',
+        default_value='/ego_racecar/odom',
+        description='Odometry topic to use in sim mode'
+    )
+    
+    race_line_arg = DeclareLaunchArgument(
+        'race_line',
+        default_value='fmap_5.0_0.3_7.0_7.0',
+        description='Raceline CSV filename (without extension) from config/reference_paths/'
     )
     
     
@@ -35,11 +47,11 @@ def generate_launch_description():
         output='screen',
         parameters=[
             config_file,
-            {'use_sim_time': LaunchConfiguration('use_sim_time')}
+            {'use_sim_time': LaunchConfiguration('use_sim_time'),
+             'reference_path_file': LaunchConfiguration('race_line')}
         ],
         remappings=[
-            # ('/odom', '/ego_racecar/odom'),
-            ('/odom', '/pf/pose/odom'),
+            ('/odom', LaunchConfiguration('odom_mode')),
             ('/map', '/updated_map'),
         ],
         condition=IfCondition(LaunchConfiguration('sim_mode'))
@@ -53,7 +65,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             config_file,
-            {'use_sim_time': LaunchConfiguration('use_sim_time')}
+            {'use_sim_time': LaunchConfiguration('use_sim_time'),
+             'reference_path_file': LaunchConfiguration('race_line')}
         ],
         remappings=[
             ('/odom', '/pf/pose/odom'),
@@ -65,6 +78,8 @@ def generate_launch_description():
     return LaunchDescription([
         use_sim_time_arg,
         sim_mode_arg,
+        odom_mode_arg,
+        race_line_arg,
         lattice_planner_sim_node,
         lattice_planner_real_node,
     ])

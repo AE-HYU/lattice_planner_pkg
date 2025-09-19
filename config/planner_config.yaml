@@ -10,7 +10,9 @@ lattice_planner:
     # - "first_map_raceline"
     # - "" (empty for default test path)
     # reference_path_file: "Spielberg_global"  # CSV filename without extension
-    reference_path_file: "sibal1_6ms"  # CSV filename without extension
+    reference_path_file: "fmap_5.0_0.3_7.0_7.0"  # CSV filename without extension
+    # reference_path_file: "icra_2"  # CSV filename without extension
+
 
     path_resolution: 0.1
     
