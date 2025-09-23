@@ -7,7 +7,7 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <ae_hyu_msgs/msg/wpnt_array.hpp>
-#include <obstacle_detection_pkg/msg/obstacle_array.hpp>
+#include <ae_hyu_msgs/msg/obstacle_array.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -46,7 +46,7 @@ struct RefPoint {
 };
 
 struct Obstacle {
-    double x, y, z;           // Global coordinates from obstacle_detection_pkg
+    double x, y, z;           // Global coordinates
     double size;              // Approximate size/radius of obstacle
     double distance;          // Distance from robot to obstacle centroid
     int32_t point_count;      // Number of points in this obstacle cluster
@@ -130,7 +130,7 @@ private:
     // Callbacks
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
     void grid_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
-    void obstacles_callback(const obstacle_detection_pkg::msg::ObstacleArray::SharedPtr msg);
+    void obstacles_callback(const ae_hyu_msgs::msg::ObstacleArray::SharedPtr msg);
     void planning_timer_callback();
     
     // Configuration and state
@@ -166,7 +166,7 @@ private:
     
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr grid_sub_;
-    rclcpp::Subscription<obstacle_detection_pkg::msg::ObstacleArray>::SharedPtr obstacles_sub_;
+    rclcpp::Subscription<ae_hyu_msgs::msg::ObstacleArray>::SharedPtr obstacles_sub_;
     
     rclcpp::TimerBase::SharedPtr planning_timer_;
     

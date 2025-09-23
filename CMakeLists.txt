@@ -15,7 +15,6 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(ae_hyu_msgs REQUIRED)
-find_package(obstacle_detection_pkg REQUIRED)
 
 # Lattice Planner Node
 add_executable(lattice_planner_node 
@@ -34,7 +33,6 @@ ament_target_dependencies(lattice_planner_node
   tf2_ros
   tf2_geometry_msgs
   ae_hyu_msgs
-  obstacle_detection_pkg
 )
 
 target_include_directories(lattice_planner_node
