@@ -10,38 +10,44 @@ colcon build --packages-select lattice_planner_pkg
 source install/setup.bash
 
 # Real hardware
-ros2 launch lattice_planner_pkg lattice_planner.launch.py
+ros2 launch lattice_planner_pkg lattice_planner.launch.py mod:=real
 
-# Simulation
-ros2 launch lattice_planner_pkg lattice_planner.launch.py sim_mode:=true
+# Simulation (using simulator odometry)
+ros2 launch lattice_planner_pkg lattice_planner.launch.py mod:=sim
+
+# Simulation with MCL (using particle filter localization)
+ros2 launch lattice_planner_pkg lattice_planner.launch.py mod:=sim_pf
 
 # Custom raceline
-ros2 launch lattice_planner_pkg lattice_planner.launch.py race_line:=Spielberg_global
-
-# Simulation with custom raceline and odometry topic
-ros2 launch lattice_planner_pkg lattice_planner.launch.py sim_mode:=true race_line:=icra_2 odom_mode:=/custom/odom
+ros2 launch lattice_planner_pkg lattice_planner.launch.py mod:=real race_line:=Spielberg_global
 ```
 
 ## Launch Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `sim_mode` | `false` | Use simulation topics if true |
-| `use_sim_time` | `false` | Use simulation time |
+| `mod` | `real` | Launch mode: `real`, `sim`, or `sim_pf` |
 | `race_line` | `fmap_5.0_0.3_7.0_7.0` | Raceline CSV filename (without extension) |
-| `odom_mode` | `/ego_racecar/odom` | Odometry topic for sim mode |
 
 ## Topics
 
-### Real Hardware Mode
+### Real Mode (`mod:=real`)
 - **Input**: `/pf/pose/odom` - Localized pose from MCL
 - **Output**: `/local_waypoints`, `/global_waypoints` - Planned paths
 - **Frenet**: `/car_state/frenet/odom` - Vehicle state in Frenet coordinates
+- **Timing**: Real time
 
-### Simulation Mode
-- **Input**: Configurable via `odom_mode` (default: `/ego_racecar/odom`)
+### Simulation Mode (`mod:=sim`)
+- **Input**: `/ego_racecar/odom` - Direct simulator odometry
 - **Output**: `/local_waypoints`, `/global_waypoints` - Planned paths
 - **Frenet**: `/car_state/frenet/odom` - Vehicle state in Frenet coordinates
+- **Timing**: Simulation time
+
+### Simulation + MCL Mode (`mod:=sim_pf`)
+- **Input**: `/pf/pose/odom` - MCL localization in simulation
+- **Output**: `/local_waypoints`, `/global_waypoints` - Planned paths
+- **Frenet**: `/car_state/frenet/odom` - Vehicle state in Frenet coordinates
+- **Timing**: Simulation time
 
 ### Visualization
 - `/path_candidates` - Path sampling visualization

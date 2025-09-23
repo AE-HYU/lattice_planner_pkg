@@ -6,14 +6,6 @@ from launch.conditions import IfCondition, UnlessCondition
 from ament_index_python.packages import get_package_share_directory
 import os
 
-def get_odom_topic(odom_mode):
-    """Convert shorthand odom_mode to full topic name"""
-    odom_mappings = {
-        'pf': '/pf/pose/odom',
-        'ego': '/ego_racecar/odom',
-        'sim': '/ego_racecar/odom'
-    }
-    return odom_mappings.get(odom_mode, odom_mode)
 
 def generate_launch_description():
     # Get package directory
@@ -23,22 +15,10 @@ def generate_launch_description():
     config_file = os.path.join(pkg_dir, 'config', 'planner_config.yaml')
     
     # Launch arguments
-    use_sim_time_arg = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='false',
-        description='Use simulation time if true'
-    )
-    
-    sim_mode_arg = DeclareLaunchArgument(
-        'sim_mode',
-        default_value='false',
-        description='Use simulation mode if true, real car mode if false'
-    )
-    
-    odom_mode_arg = DeclareLaunchArgument(
-        'odom_mode',
-        default_value='/ego_racecar/odom',
-        description='Odometry topic to use in sim mode. Supports shortcuts: pf=/pf/pose/odom, ego=/ego_racecar/odom, sim=/ego_racecar/odom'
+    mod_arg = DeclareLaunchArgument(
+        'mod',
+        default_value='real',
+        description='Launch mode: real (use /pf/pose/odom), sim (use /ego_racecar/odom), sim_pf (use /pf/pose/odom)'
     )
     
     race_line_arg = DeclareLaunchArgument(
@@ -48,51 +28,31 @@ def generate_launch_description():
     )
     
     
-    # Lattice planner node for simulation mode
-    lattice_planner_sim_node = Node(
+    # Lattice planner node
+    lattice_planner_node = Node(
         package='lattice_planner_pkg',
         executable='lattice_planner_node',
         name='lattice_planner',
         output='screen',
         parameters=[
             config_file,
-            {'use_sim_time': LaunchConfiguration('use_sim_time'),
-             'reference_path_file': LaunchConfiguration('race_line')}
+            {
+                'use_sim_time': PythonExpression([
+                    "'true' if '", LaunchConfiguration('mod'), "' in ['sim', 'sim_pf'] else 'false'"
+                ]),
+                'reference_path_file': LaunchConfiguration('race_line')
+            }
         ],
         remappings=[
             ('/odom', PythonExpression([
-                "'", LaunchConfiguration('odom_mode'), "' if '", LaunchConfiguration('odom_mode'), "'.startswith('/') else ",
-                "{'pf': '/pf/pose/odom', 'ego': '/ego_racecar/odom', 'sim': '/ego_racecar/odom'}.get('", 
-                LaunchConfiguration('odom_mode'), "', '", LaunchConfiguration('odom_mode'), "')"
+                "'/ego_racecar/odom' if '", LaunchConfiguration('mod'), "' == 'sim' else '/pf/pose/odom'"
             ])),
             ('/map', '/updated_map'),
-        ],
-        condition=IfCondition(LaunchConfiguration('sim_mode'))
-    )
-    
-    # Lattice planner node for real car mode
-    lattice_planner_real_node = Node(
-        package='lattice_planner_pkg',
-        executable='lattice_planner_node',
-        name='lattice_planner',
-        output='screen',
-        parameters=[
-            config_file,
-            {'use_sim_time': LaunchConfiguration('use_sim_time'),
-             'reference_path_file': LaunchConfiguration('race_line')}
-        ],
-        remappings=[
-            ('/odom', '/pf/pose/odom'),
-            ('/map', '/updated_map'),
-        ],
-        condition=UnlessCondition(LaunchConfiguration('sim_mode'))
+        ]
     )
     
     return LaunchDescription([
-        use_sim_time_arg,
-        sim_mode_arg,
-        odom_mode_arg,
+        mod_arg,
         race_line_arg,
-        lattice_planner_sim_node,
-        lattice_planner_real_node,
+        lattice_planner_node,
     ])
