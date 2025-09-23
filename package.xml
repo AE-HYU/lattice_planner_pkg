@@ -20,7 +20,6 @@
   <depend>tf2_ros</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>ae_hyu_msgs</depend>
-  <depend>obstacle_detection_pkg</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

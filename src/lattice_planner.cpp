@@ -97,8 +97,8 @@ bool LocalPlanner::initialize() {
     grid_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
         "/map", 10, std::bind(&LocalPlanner::grid_callback, this, std::placeholders::_1));
     
-    obstacles_sub_ = this->create_subscription<obstacle_detection_pkg::msg::ObstacleArray>(
-        "/detected_obstacles", 10, std::bind(&LocalPlanner::obstacles_callback, this, std::placeholders::_1));
+    obstacles_sub_ = this->create_subscription<ae_hyu_msgs::msg::ObstacleArray>(
+        "/detection/raw_obstacles", 10, std::bind(&LocalPlanner::obstacles_callback, this, std::placeholders::_1));
     
     // Initialize planning timer
     auto timer_period = std::chrono::milliseconds(static_cast<int>(1000.0 / config_.planning_frequency));
@@ -183,7 +183,7 @@ void LocalPlanner::grid_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr m
         msg->info.width, msg->info.height, msg->info.resolution);
 }
 
-void LocalPlanner::obstacles_callback(const obstacle_detection_pkg::msg::ObstacleArray::SharedPtr msg) {
+void LocalPlanner::obstacles_callback(const ae_hyu_msgs::msg::ObstacleArray::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(obstacles_mutex_);
     
     current_obstacles_.clear();
